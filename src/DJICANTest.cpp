@@ -3,16 +3,21 @@
 #include "C610.h"
 #include "PID.h"
 
+const int PRINT_DELAY = 2000;
+const int CONTROL_DELAY = 1000;
+const int FEEDBACK_DELAY = 1000;
+
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
 
-long last_print_ts = millis();
+long last_print_ts = micros();
 MotorState MOTOR_STATE_1;
 MotorState MOTOR_STATES[NUM_C610S];
 
 PDGAINS EXP_GAINS;
 
-int32_t current_torque_command = 0;
-long last_command_ts = millis();
+int32_t torque_setting = 0;
+int32_t torque_command = 0;
+long last_command_ts = micros();
 
 void readCAN(const CAN_message_t &msg)
 {
@@ -23,21 +28,23 @@ void readCAN(const CAN_message_t &msg)
         interpretC610Message(msg, pos, velocity, torque);
         updateMotorState(MOTOR_STATES[esc_index], pos, velocity, torque);
 
-        if (millis() - last_print_ts > 10)
+        if (micros() - last_print_ts > 10)
         {
-            Serial.print(MOTOR_STATES[0].counts / 10);
+            Serial.print(millis());
+            Serial.print("\t");
+            Serial.print(MOTOR_STATES[0].counts);
             Serial.print("\t");
             Serial.print(MOTOR_STATES[0].velocity);
             Serial.print("\t");
             Serial.print(MOTOR_STATES[0].torque);
             Serial.print("\t");
-            Serial.print(current_torque_command);
-            Serial.print("\t");
-            Serial.print(6000);
-            Serial.print("\t");
-            Serial.print(-6000);
+            Serial.print(torque_command);
+            // Serial.print("\t");
+            // Serial.print(6000);
+            // Serial.print("\t");
+            // Serial.print(-6000);
             Serial.println();
-            last_print_ts = millis();
+            last_print_ts = micros();
         }
     }
 }
@@ -48,7 +55,7 @@ void plotCAN(const CAN_message_t &msg)
     interpretC610Message(msg, pos, velocity, torque);
     updateMotorState(MOTOR_STATE_1, pos, velocity, torque);
 
-    if (millis() - last_print_ts > 10)
+    if (millis() - last_print_ts > PRINT_DELAY)
     {
         Serial.print(MOTOR_STATE_1.counts / 10);
         Serial.print("\t");
@@ -126,6 +133,7 @@ void setup(void)
 // stalls at 5A when holding very still but if small turns made doesn't hit stall condition
 // 5 min at 3000 is totally ok, maybe 40deg c
 // 8 min at 4000 is warm, maybe 60-70c at the middle aluminum
+// takes around 0.03 seconds to go from 0 to 7150, with command 8000
 void loop()
 {
     Can0.events();
@@ -138,10 +146,13 @@ void loop()
     //     last_command_ts = micros();
     // }
 
-    if (millis() - last_command_ts > 100)
+    if (micros() - last_command_ts > CONTROL_DELAY)
     {
-        sendTorqueCommand(Can0, current_torque_command, 1);
-        last_command_ts = millis();
+        const float freq = 40;
+        float phase = freq * micros() * 2 * PI / 1000000 ;
+        torque_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
+        sendTorqueCommand(Can0, torque_command, 1);
+        last_command_ts = micros();
     }
 
     while (Serial.available())
@@ -154,12 +165,12 @@ void loop()
         {
             if (c == i + '0')
             {
-                current_torque_command = - i * 1000;
+                torque_setting = - i * 1000;
             }
         }
         if (c == '`')
             {
-                current_torque_command = 0;
+                torque_setting = 0;
             }
         while (Serial.available())
         {

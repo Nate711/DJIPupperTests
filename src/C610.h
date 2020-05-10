@@ -14,7 +14,7 @@ void torqueToBytes(int16_t torque, uint8_t& upper, uint8_t& lower) {
 
 void sendTorqueCommand(FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16>& can_bus, int32_t torque, uint8_t id) {
   // only for id 1 through 4
-  int16_t torque16 = int16_t(torque);
+  int16_t torque16 = int16_t(constrain(torque, -32000, 32000)); // prevent overflow of int16_t
   CAN_message_t msg;
   msg.id = ID_ONE_TO_EIGHT;
   for (uint8_t i = 0; i < 8; i++ ) msg.buf[i] = 0;

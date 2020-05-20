@@ -39,6 +39,8 @@ void readCAN(const CAN_message_t &msg)
             Serial.print(MOTOR_STATES[0].torque);
             Serial.print("\t");
             Serial.print(torque_command);
+            Serial.print("\t");
+            Serial.print(torque_setting);
             // Serial.print("\t");
             // Serial.print(6000);
             // Serial.print("\t");
@@ -148,10 +150,14 @@ void loop()
 
     if (micros() - last_command_ts > CONTROL_DELAY)
     {
-        const float freq = 40;
-        float phase = freq * micros() * 2 * PI / 1000000 ;
-        torque_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
-        sendTorqueCommand(Can0, torque_command, 1);
+        // SINUSOIDAL
+        // const float freq = 40;
+        // float phase = freq * micros() * 2 * PI / 1000000;
+        // torque_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
+        // sendTorqueCommand(Can0, torque_command, 1);
+
+        // CONSTANT
+        sendTorqueCommand(Can0, torque_setting, 1);
         last_command_ts = micros();
     }
 
@@ -161,17 +167,16 @@ void loop()
         Serial.print("Received: ");
         Serial.print(c);
         Serial.println(" * 1000mA");
-        for (int8_t i = 0; i < 10; i++)
+
+        uint8_t int_input = c - '0';
+        if (int_input >= 0 && int_input <= 20)
         {
-            if (c == i + '0')
-            {
-                torque_setting = - i * 1000;
-            }
+            torque_setting = -int_input * 1000;
         }
         if (c == '`')
-            {
-                torque_setting = 0;
-            }
+        {
+            torque_setting = 0;
+        }
         while (Serial.available())
         {
             Serial.read();

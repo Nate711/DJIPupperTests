@@ -6,6 +6,7 @@
 const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 const int FEEDBACK_DELAY = 1000;
+const int32_t MAX_TORQUE = 5000;
 
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
 
@@ -22,7 +23,9 @@ enum Mode
     PID,
     IDLE
 };
-Mode control_mode = Mode::IDLE;
+Mode control_mode = Mode::PID;
+
+const uint8_t CONTROL_MASK[8] = {0, 1, 1, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;
@@ -39,6 +42,13 @@ void zeroTorqueCommands(int32_t (&torque_commands)[NUM_C610S])
     for (int i = 0; i < NUM_C610S; i++)
     {
         torque_commands[i] = 0;
+    }
+}
+void maskTorques(int32_t (&torque_commands)[NUM_C610S], const uint8_t mask[NUM_C610S])
+{
+    for (int i = 0; i < NUM_C610S; i++)
+    {
+        torque_commands[i] = torque_commands[i] * mask[i];
     }
 }
 
@@ -58,8 +68,8 @@ void setup(void)
 
     initializeMotorStates(MOTOR_STATES, NUM_C610S);
 
-    EXP_GAINS.kp = 0.16;
-    EXP_GAINS.kd = 0.6;
+    EXP_GAINS.kp = 1.0;
+    EXP_GAINS.kd = 2.0;
 
     last_command_ts = micros();
     last_print_ts = micros();
@@ -84,9 +94,10 @@ void loop()
             for (int i = 0; i < NUM_C610S; i++)
             {
                 pid(torque_commands[i], MOTOR_STATES[i].counts, MOTOR_STATES[i].velocity, target_pos, 0, EXP_GAINS);
-                torque_commands[i] = constrain(torque_commands[i], -5000, 5000);
-                break;
+                torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE, MAX_TORQUE);
             }
+            maskTorques(torque_commands, CONTROL_MASK);
+            break;
         }
         case Mode::TORQUE:
         {
@@ -101,7 +112,7 @@ void loop()
         // torque0_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
 
         // send to esc 0 (id = 1)
-        // sendTorqueCommand(Can0, torque_commands[0], torque_commands[1], torque_commands[2], torque_commands[3], 0);
+        sendTorqueCommand(Can0, torque_commands[0], torque_commands[1], torque_commands[2], torque_commands[3], 0);
         last_command_ts = micros();
     }
 

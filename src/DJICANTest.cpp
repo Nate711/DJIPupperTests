@@ -3,108 +3,43 @@
 #include "C610.h"
 #include "PID.h"
 
-const int PRINT_DELAY = 2000;
+const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 const int FEEDBACK_DELAY = 1000;
 
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
 
-long last_print_ts = micros();
-MotorState MOTOR_STATE_1;
 MotorState MOTOR_STATES[NUM_C610S];
 
 PDGAINS EXP_GAINS;
 
 int32_t torque_setting = 0;
-int32_t torque_command = 0;
-long last_command_ts = micros();
+int32_t torque_commands[NUM_C610S] = {0, 0, 0, 0, 0, 0, 0, 0};
 
+enum Mode
+{
+    TORQUE,
+    PID,
+    IDLE
+};
+Mode control_mode = Mode::IDLE;
+
+long last_command_ts;
+long last_print_ts;
+
+// TODO: Make the callback an object function so it can access scoped data, rather than
+// this way (global function) which can only access global data
 void readCAN(const CAN_message_t &msg)
 {
-    if (msg.id >= ID_ONE_TO_EIGHT + 1 && msg.id <= ID_ONE_TO_EIGHT + 8)
-    {
-        int32_t esc_index = msg.id - ID_ONE_TO_EIGHT - 1; // ESC 1 corresponds to index 0
-        int32_t pos, velocity, torque;
-        interpretC610Message(msg, pos, velocity, torque);
-        updateMotorState(MOTOR_STATES[esc_index], pos, velocity, torque);
-
-        if (micros() - last_print_ts > 10)
-        {
-            Serial.print(millis());
-            Serial.print("\t");
-            Serial.print(MOTOR_STATES[0].counts);
-            Serial.print("\t");
-            Serial.print(MOTOR_STATES[0].velocity);
-            Serial.print("\t");
-            Serial.print(MOTOR_STATES[0].torque);
-            Serial.print("\t");
-            Serial.print(torque_command);
-            Serial.print("\t");
-            Serial.print(torque_setting);
-            // Serial.print("\t");
-            // Serial.print(6000);
-            // Serial.print("\t");
-            // Serial.print(-6000);
-            Serial.println();
-            last_print_ts = micros();
-        }
-    }
+    CS610ReadCallback(msg, MOTOR_STATES);
 }
 
-void plotCAN(const CAN_message_t &msg)
+void zeroTorqueCommands(int32_t (&torque_commands)[NUM_C610S])
 {
-    int32_t pos, velocity, torque;
-    interpretC610Message(msg, pos, velocity, torque);
-    updateMotorState(MOTOR_STATE_1, pos, velocity, torque);
-
-    if (millis() - last_print_ts > PRINT_DELAY)
+    for (int i = 0; i < NUM_C610S; i++)
     {
-        Serial.print(MOTOR_STATE_1.counts / 10);
-        Serial.print("\t");
-        Serial.print(MOTOR_STATE_1.velocity);
-        Serial.print("\t");
-        Serial.print(MOTOR_STATE_1.torque);
-        Serial.print("\t");
-        Serial.print(6000);
-        Serial.print("\t");
-        Serial.print(-6000);
-        Serial.println();
-        last_print_ts = millis();
+        torque_commands[i] = 0;
     }
-}
-
-void canSniff(const CAN_message_t &msg)
-{
-    Serial.print("MB ");
-    Serial.print(msg.mb);
-    Serial.print("  OVERRUN: ");
-    Serial.print(msg.flags.overrun);
-    Serial.print("  LEN: ");
-    Serial.print(msg.len);
-    Serial.print(" EXT: ");
-    Serial.print(msg.flags.extended);
-    Serial.print(" TS: ");
-    Serial.print(msg.timestamp);
-    Serial.print(" ID: ");
-    Serial.print(msg.id, HEX);
-    Serial.print(" Buffer: ");
-    for (uint8_t i = 0; i < msg.len; i++)
-    {
-        Serial.print(msg.buf[i], HEX);
-        Serial.print(" ");
-    }
-
-    uint16_t mech_angle = 0;
-    mech_angle = (msg.buf[0] << 8) | msg.buf[1];
-    Serial.print(" Angle: ");
-    Serial.print(mech_angle);
-    int16_t rotor_speed = (msg.buf[2] << 8) | msg.buf[3];
-    Serial.print(" Speed: ");
-    Serial.print(rotor_speed);
-    int16_t torque = (msg.buf[4] << 8) | msg.buf[5];
-    Serial.print(" Torque: ");
-    Serial.print(torque);
-    Serial.println();
 }
 
 void setup(void)
@@ -118,47 +53,80 @@ void setup(void)
     Can0.setMaxMB(16);
     Can0.enableFIFO();
     Can0.enableFIFOInterrupt();
-    //  Can0.onReceive(canSniff);
-    //  Can0.onReceive(plotCAN);
     Can0.onReceive(readCAN);
     Can0.mailboxStatus();
 
-    initializeMotorState(MOTOR_STATE_1);
     initializeMotorStates(MOTOR_STATES, NUM_C610S);
 
     EXP_GAINS.kp = 0.16;
     EXP_GAINS.kd = 0.6;
+
+    last_command_ts = micros();
+    last_print_ts = micros();
 }
 
-// has a 3 second watchdog
-// 200 is the min current required to turn the output shaft (0.2A)
-// stalls at 5A when holding very still but if small turns made doesn't hit stall condition
-// 5 min at 3000 is totally ok, maybe 40deg c
-// 8 min at 4000 is warm, maybe 60-70c at the middle aluminum
-// takes around 0.03 seconds to go from 0 to 7150, with command 8000
 void loop()
 {
     Can0.events();
-    // if (micros() - last_command_ts > 1000)
-    // { // 1000 hz, also worked at 100hz!
-    //     float target_pos = 100.0 * sin(millis() / 1000.0);
-    //     pid(current_torque_command, MOTOR_STATES[0].counts, MOTOR_STATES[0].velocity, target_pos, 0, EXP_GAINS);
-    //     current_torque_command = constrain(current_torque_command, -4000, 4000);
-    //     sendTorqueCommand(Can0, current_torque_command, 1);
-    //     last_command_ts = micros();
-    // }
-
     if (micros() - last_command_ts > CONTROL_DELAY)
     {
+        switch (control_mode)
+        {
+        case Mode::IDLE:
+        {
+            zeroTorqueCommands(torque_commands);
+            break;
+        }
+        case Mode::PID:
+        {
+            float target_pos = 0;
+            zeroTorqueCommands(torque_commands);
+            for (int i = 0; i < NUM_C610S; i++)
+            {
+                pid(torque_commands[i], MOTOR_STATES[i].counts, MOTOR_STATES[i].velocity, target_pos, 0, EXP_GAINS);
+                torque_commands[i] = constrain(torque_commands[i], -5000, 5000);
+                break;
+            }
+        }
+        case Mode::TORQUE:
+        {
+            zeroTorqueCommands(torque_commands);
+            torque_commands[0] = torque_setting;
+            break;
+        }
+        }
         // SINUSOIDAL
         // const float freq = 40;
         // float phase = freq * micros() * 2 * PI / 1000000;
-        // torque_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
-        // sendTorqueCommand(Can0, torque_command, 1);
+        // torque0_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
 
-        // CONSTANT
-        sendTorqueCommand(Can0, torque_setting, 1);
+        // send to esc 0 (id = 1)
+        // sendTorqueCommand(Can0, torque_commands[0], torque_commands[1], torque_commands[2], torque_commands[3], 0);
         last_command_ts = micros();
+    }
+
+    if (micros() - last_print_ts > PRINT_DELAY)
+    {
+        Serial.print(millis());
+        Serial.print("\t");
+        for (uint8_t i = 0; i < NUM_C610S; i++)
+        {
+            Serial.print(MOTOR_STATES[i].counts);
+            Serial.print("\t");
+            Serial.print(MOTOR_STATES[i].velocity);
+            Serial.print("\t");
+            Serial.print(MOTOR_STATES[i].torque);
+            Serial.print("\t");
+            Serial.print(torque_commands[i]);
+            Serial.print("\t");
+        }
+        Serial.print(torque_setting);
+        // Serial.print("\t");
+        // Serial.print(6000);
+        // Serial.print("\t");
+        // Serial.print(-6000);
+        Serial.println();
+        last_print_ts = micros();
     }
 
     while (Serial.available())
@@ -183,3 +151,12 @@ void loop()
         }
     }
 }
+
+// has a 3 second watchdog
+// 200 is the min current required to turn the output shaft (0.2A)
+// stalls at 5A when holding very still but if small turns made doesn't hit stall condition
+// 5 min at 3000 is totally ok, maybe 40deg c
+// 8 min at 4000 is warm, maybe 60-70c at the middle aluminum
+// takes around 0.03 seconds to go from 0 to 7150, with command 8000
+
+// Notes: PID worked at 1000 hz, also worked at 100hz!

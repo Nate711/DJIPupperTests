@@ -7,10 +7,7 @@ const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 const int32_t MAX_TORQUE = 5000;
 
-FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
-
-MotorState MOTOR_STATES[NUM_C610S];
-
+C610Array controller_array();
 PDGAINS EXP_GAINS;
 
 int32_t torque_setting = 0;
@@ -51,14 +48,6 @@ one high-level object to control all escs (12 in total)
 object per esc
 - update position / velocity, keep track of wrap-around
 */
-
-
-// TODO: Make the callback an object function so it can access scoped data, rather than
-// this way (global function) which can only access global data
-void readCAN(const CAN_message_t &msg)
-{
-    CS610ReadCallback(msg, MOTOR_STATES);
-}
 
 void zeroTorqueCommands(int32_t (&torque_commands)[NUM_C610S])
 {
@@ -134,17 +123,6 @@ void setup(void)
 {
     Serial.begin(115200);
     delay(400);
-    pinMode(6, OUTPUT);
-    digitalWrite(6, LOW); /* optional tranceiver enable pin */
-    Can0.begin();
-    Can0.setBaudRate(1000000);
-    Can0.setMaxMB(16);
-    Can0.enableFIFO();
-    Can0.enableFIFOInterrupt();
-    Can0.onReceive(readCAN);
-    Can0.mailboxStatus();
-
-    initializeMotorStates(MOTOR_STATES, NUM_C610S);
 
     EXP_GAINS.kp = 0.75; //mA per tick
     EXP_GAINS.kd = 2.8;

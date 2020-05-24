@@ -5,7 +5,6 @@
 
 const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
-const int FEEDBACK_DELAY = 1000;
 const int32_t MAX_TORQUE = 5000;
 
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> Can0;
@@ -19,16 +18,40 @@ int32_t torque_commands[NUM_C610S] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 enum Mode
 {
-    TORQUE,
+    CONST_TORQUE,
+    RIPPLE_TORQUE,
     PID,
     IDLE
 };
+const uint8_t CONST_TORQUE_ESC = 2;
 Mode control_mode = Mode::PID;
 
-const uint8_t CONTROL_MASK[8] = {0, 1, 1, 0, 0, 0, 0, 0};
+enum PositionMode
+{
+    SIN,
+    CONST
+};
+PositionMode position_mode = PositionMode::CONST;
+
+const uint8_t CONTROL_MASK[8] = {0, 0, 1, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;
+
+/*
+TODOs
+object-based control of motors
+one high-level object to control all escs (12 in total)
+- needs to keep two separate can objects
+- needs to assign esc objects to certain can objecst
+- set torques
+- callback to update objects
+- wrapper for retrieving all positions and velocities
+- send torques (keeps track of which subbus)
+object per esc
+- update position / velocity, keep track of wrap-around
+*/
+
 
 // TODO: Make the callback an object function so it can access scoped data, rather than
 // this way (global function) which can only access global data
@@ -44,12 +67,67 @@ void zeroTorqueCommands(int32_t (&torque_commands)[NUM_C610S])
         torque_commands[i] = 0;
     }
 }
+
 void maskTorques(int32_t (&torque_commands)[NUM_C610S], const uint8_t mask[NUM_C610S])
 {
     for (int i = 0; i < NUM_C610S; i++)
     {
         torque_commands[i] = torque_commands[i] * mask[i];
     }
+}
+
+void parseSerialInput(char c, int32_t &torque_setting)
+{
+    // Right now this code treats all inputs as constant torque requests
+    // TODO: make the serial parsing more flexible
+
+    // Enter 'x' to go to IDLE mode!
+    if(c == 'x')
+    {
+        control_mode = IDLE;
+    }
+
+    Serial.print("Received: ");
+    Serial.print(c);
+    Serial.println(" * 1000mA");
+
+    uint8_t int_input = c - '0';
+    if (int_input >= 0 && int_input <= 20)
+    {
+        torque_setting = int_input * 1000;
+    }
+    if (c == '`')
+    {
+        torque_setting = 0;
+    }
+    while (Serial.available())
+    {
+        Serial.read();
+    }
+}
+
+void printMotorStates(MotorState motor_states[NUM_C610S], int32_t torque_commands[NUM_C610S])
+{
+    Serial.print(millis());
+    Serial.print("\t");
+    for (uint8_t i = 0; i < NUM_C610S; i++)
+    {
+        Serial.print(motor_states[i].counts);
+        Serial.print("\t");
+        Serial.print(motor_states[i].velocity);
+        Serial.print("\t");
+        Serial.print(motor_states[i].torque);
+        Serial.print("\t");
+        Serial.print(torque_commands[i]);
+        Serial.print("\t");
+    }
+    Serial.print(torque_setting);
+    // Serial.print("\t");
+    // Serial.print(6000);
+    // Serial.print("\t");
+    // Serial.print(-6000);
+    Serial.println();
+    last_print_ts = micros();
 }
 
 void setup(void)
@@ -68,9 +146,8 @@ void setup(void)
 
     initializeMotorStates(MOTOR_STATES, NUM_C610S);
 
-    EXP_GAINS.kp = 1.0;
-    EXP_GAINS.kd = 2.0;
-
+    EXP_GAINS.kp = 0.75; //mA per tick
+    EXP_GAINS.kd = 2.8;
     last_command_ts = micros();
     last_print_ts = micros();
 }
@@ -99,10 +176,17 @@ void loop()
             maskTorques(torque_commands, CONTROL_MASK);
             break;
         }
-        case Mode::TORQUE:
+        case Mode::CONST_TORQUE:
         {
             zeroTorqueCommands(torque_commands);
-            torque_commands[0] = torque_setting;
+            torque_commands[CONST_TORQUE_ESC] = torque_setting;
+            break;
+        }
+        case Mode::RIPPLE_TORQUE:
+        {
+            zeroTorqueCommands(torque_commands);
+            float phase = 90.0 * millis() / 1000.0; // 30hz // 20hz
+            torque_commands[CONST_TORQUE_ESC] = torque_setting + 600 * sin(phase); // 30hz ripple
             break;
         }
         }
@@ -111,55 +195,19 @@ void loop()
         // float phase = freq * micros() * 2 * PI / 1000000;
         // torque0_command = int32_t(torque_setting * (0.5 + sin(phase) / 2.0));
 
-        // send to esc 0 (id = 1)
         sendTorqueCommand(Can0, torque_commands[0], torque_commands[1], torque_commands[2], torque_commands[3], 0);
         last_command_ts = micros();
     }
 
     if (micros() - last_print_ts > PRINT_DELAY)
     {
-        Serial.print(millis());
-        Serial.print("\t");
-        for (uint8_t i = 0; i < NUM_C610S; i++)
-        {
-            Serial.print(MOTOR_STATES[i].counts);
-            Serial.print("\t");
-            Serial.print(MOTOR_STATES[i].velocity);
-            Serial.print("\t");
-            Serial.print(MOTOR_STATES[i].torque);
-            Serial.print("\t");
-            Serial.print(torque_commands[i]);
-            Serial.print("\t");
-        }
-        Serial.print(torque_setting);
-        // Serial.print("\t");
-        // Serial.print(6000);
-        // Serial.print("\t");
-        // Serial.print(-6000);
-        Serial.println();
-        last_print_ts = micros();
+        printMotorStates(MOTOR_STATES, torque_commands);
     }
 
     while (Serial.available())
     {
         char c = Serial.read();
-        Serial.print("Received: ");
-        Serial.print(c);
-        Serial.println(" * 1000mA");
-
-        uint8_t int_input = c - '0';
-        if (int_input >= 0 && int_input <= 20)
-        {
-            torque_setting = -int_input * 1000;
-        }
-        if (c == '`')
-        {
-            torque_setting = 0;
-        }
-        while (Serial.available())
-        {
-            Serial.read();
-        }
+        parseSerialInput(c, torque_setting);
     }
 }
 

@@ -1,6 +1,6 @@
 #define NUM_C610S 8
 const uint32_t ZERO_TO_THREE_COMMAND_ID = 0x200;
-const uint32_t FOUR_TO_SEVEN_COMMAND_ID = 0x200;
+const uint32_t FOUR_TO_SEVEN_COMMAND_ID = 0x1FF;
 const uint32_t RECEIVE_BASE_ID = 0x200;
 
 /////////////// OUTWARD ///////////////
@@ -113,7 +113,7 @@ void updateMotorState(MotorState &ms, int32_t pos_measurement, int32_t velocity_
     ms.torque = torque_measurement;
 }
 
-void CS610ReadCallback(const CAN_message_t &msg, MotorState (&motor_states)[NUM_C610S]) {
+void CS610ReadCallback(const CAN_message_t &msg, MotorState motor_states[NUM_C610S]) {
     if (msg.id >= RECEIVE_BASE_ID + 1 && msg.id <= RECEIVE_BASE_ID + 8)
     {
         uint8_t esc_index = msg.id - RECEIVE_BASE_ID - 1; // ESC 1 corresponds to index 0

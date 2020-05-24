@@ -77,19 +77,23 @@ private:
     static const uint32_t FOUR_TO_SEVEN_COMMAND_ID = 0x1FF;
     static const uint32_t RECEIVE_BASE_ID = 0x200;
 
-    C610 _controllers[NUM_C610S];
+    C610 _controllers0[NUM_C610S];                   // controllers on 1st can bus (could be CAN1 or CAN2)
+    C610 _controllers1[NUM_C610S];                   // controllers on 2nd can bus
     FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> _can0; // TODO big potential issue: revert this to CAN1 later
     FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> _can1;
 
 public:
     C610Array();
     void pollCAN();
-    void callback(CAN_message_t &msg);
+    void callback0(CAN_message_t &msg);
+    void callback1(CAN_message_t &msg);
+    void callback(CAN_message_t &msg, uint8_t bus);
     void commandTorques(int32_t torque0, int32_t torque1 = 0, int32_t torque2 = 0, int32_t torque3 = 0, uint8_t subbus = 0);
     void initializeCANBus();
 };
 
-void C610Array::pollCAN() {
+void C610Array::pollCAN()
+{
     _can0.events();
     _can1.events();
 }
@@ -103,22 +107,30 @@ void C610Array::initializeCANBus()
     _can0.enableFIFOInterrupt();
     // _can0.onReceive(callback);
     _can0.mailboxStatus();
-    
+
     _can1.begin();
     _can1.setBaudRate(1000000);
     _can1.setMaxMB(16);
     _can1.enableFIFO();
     _can1.enableFIFOInterrupt();
-    // _can0.onReceive(callback);
+    // _can1.onReceive(callback);
     _can1.mailboxStatus();
 }
 
 C610Array::C610Array()
 {
-    
 }
 
-void C610Array::callback(CAN_message_t &msg)
+void C610Array::callback0(CAN_message_t &msg)
+{
+    callback(msg, 0);
+}
+void C610Array::callback1(CAN_message_t &msg)
+{
+    callback(msg, 1);
+}
+
+void C610Array::callback(CAN_message_t &msg, uint8_t network)
 {
     if (msg.id >= RECEIVE_BASE_ID + 1 && msg.id <= RECEIVE_BASE_ID + NUM_C610S)
     {
@@ -127,7 +139,14 @@ void C610Array::callback(CAN_message_t &msg)
         {
             int32_t pos, velocity, torque;
             C610::interpretMessage(msg, pos, velocity, torque);
-            _controllers[esc_index].updateState(pos, velocity, torque);
+            if (network == 0)
+            {
+                _controllers0[esc_index].updateState(pos, velocity, torque);
+            }
+            else
+            {
+                _controllers1[esc_index].updateState(pos, velocity, torque);
+            }
         }
         else
         {

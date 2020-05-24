@@ -1,4 +1,6 @@
-#include <C610.h>
+#include "C610.h"
+#include <FlexCAN_T4.h>
+
 C610::C610(const int32_t counts_per_rev)
 {
     _counts_per_rev = counts_per_rev;
@@ -21,6 +23,21 @@ void C610::interpretMessage(const CAN_message_t &msg, int32_t &pos, int32_t &vel
     pos = uint16_t((msg.buf[0] << 8) | msg.buf[1]);
     vel = int16_t((msg.buf[2] << 8) | msg.buf[3]);
     torque = int16_t((msg.buf[4] << 8) | msg.buf[5]);
+}
+
+int32_t C610::counts()
+{
+    return _counts;
+}
+
+int32_t C610::rpm()
+{
+    return _rpm;
+}
+
+int32_t C610::torque()
+{
+    return _torque;
 }
 
 void C610::updateState(const int32_t pos_measurement, const int32_t velocity_measurement, const int32_t torque_measurement)

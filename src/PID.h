@@ -1,3 +1,5 @@
+#pragma once
+
 struct PDGAINS {
   float kp;
   float kd;

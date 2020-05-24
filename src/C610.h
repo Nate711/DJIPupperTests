@@ -1,3 +1,7 @@
+#pragma once
+#include <Arduino.h>
+#include <FlexCAN_T4.h>
+
 class C610
 {
 private:
@@ -10,8 +14,12 @@ private:
     int32_t _torque;
 
 public:
-    C610(int32_t counts_per_rev = 8192);
     static void torqueToBytes(int16_t torque, uint8_t &upper, uint8_t &lower);
-    void updateState(const int32_t pos_measurement, const int32_t velocity_measurement, const int32_t torque_measurement);
     static void interpretMessage(const CAN_message_t &msg, int32_t &pos, int32_t &vel, int32_t &torque);
+    
+    C610(int32_t counts_per_rev = 8192);
+    void updateState(const int32_t pos_measurement, const int32_t velocity_measurement, const int32_t torque_measurement);
+    int32_t counts();
+    int32_t rpm();
+    int32_t torque();
 };

@@ -4,19 +4,6 @@
 #include "PID.h"
 #include "DriveSystem.h"
 
-const int PRINT_DELAY = 20 * 1000;
-const int CONTROL_DELAY = 1000;
-
-const int32_t MAX_TORQUE = 5000;
-PDGAINS EXP_GAINS = {0.2, 1.4};
-const uint8_t CONST_TORQUE_ESC = 2;
-
-C610Bus<CAN2> controller_bus;
-
-int32_t torque_setting = 0;
-int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
-const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
-
 enum ControlMode
 {
     CONST_TORQUE,
@@ -24,14 +11,29 @@ enum ControlMode
     PID,
     IDLE
 };
-ControlMode control_mode = ControlMode::PID;
 
 enum PIDMode
 {
     SIN,
     CONST
 };
+
+////////////////////// CONFIG ///////////////////////
+const int PRINT_DELAY = 20 * 1000;
+const int CONTROL_DELAY = 1000;
+
+const int32_t MAX_TORQUE = 5000;
+PDGAINS EXP_GAINS = {0.2, 1.4};
+const uint8_t CONST_TORQUE_ESC = 2;
+const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
+ControlMode control_mode = ControlMode::PID;
 PIDMode position_mode = PIDMode::CONST;
+////////////////////// END CONFIG ///////////////////////
+
+C610Bus<CAN2> controller_bus;
+
+int32_t torque_setting = 0;
+int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;

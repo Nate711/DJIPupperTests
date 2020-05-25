@@ -2,6 +2,11 @@
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
 
+struct C610Feedback
+{
+    int32_t counts, rpm, torque;
+};
+
 class C610
 {
 private:
@@ -15,10 +20,10 @@ private:
 
 public:
     static void torqueToBytes(int16_t torque, uint8_t &upper, uint8_t &lower);
-    static void interpretMessage(const CAN_message_t &msg, int32_t &pos, int32_t &vel, int32_t &torque);
-    
+    static C610Feedback interpretMessage(const CAN_message_t &msg);
+
     C610(int32_t counts_per_rev = 8192);
-    void updateState(const int32_t pos_measurement, const int32_t velocity_measurement, const int32_t torque_measurement);
+    void updateState(C610Feedback feedback);
     int32_t counts();
     int32_t rpm();
     int32_t torque();

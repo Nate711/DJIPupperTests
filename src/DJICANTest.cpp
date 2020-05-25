@@ -12,10 +12,11 @@ const int32_t MAX_TORQUE = 5000;
 C610Bus<CAN2> controller_bus;
 C610Bus<CAN1> controller_bus2;
 
-PDGAINS EXP_GAINS;
+PDGAINS EXP_GAINS = {0.2, 1.4};
 
 int32_t torque_setting = 0;
-int32_t torque_commands[C610Bus<>::MAX_PER_CAN] = {0, 0, 0, 0, 0, 0, 0, 0};
+int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
+const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
 
 enum Mode
 {
@@ -33,8 +34,6 @@ enum PositionMode
     CONST
 };
 PositionMode position_mode = PositionMode::CONST;
-
-const uint8_t CONTROL_MASK[C610Bus<>::MAX_PER_CAN] = {0, 0, 1, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;
@@ -75,7 +74,7 @@ void parseSerialInput(char c, int32_t &torque_setting)
     // TODO: make the serial parsing more flexible
 
     // Enter 'x' to go to IDLE mode!
-    if(c == 'x')
+    if (c == 'x')
     {
         control_mode = IDLE;
     }
@@ -104,7 +103,7 @@ void printMotorStates(C610Bus<_bus> bus, int32_t torque_commands[], uint8_t torq
 {
     Serial.print(millis());
     Serial.print("\t");
-    for (uint8_t i = 0; i < C610Bus<>::MAX_PER_CAN; i++)
+    for (uint8_t i = 0; i < C610Bus<>::SIZE; i++)
     {
         Serial.print(bus.get(i).counts());
         Serial.print("\t");
@@ -129,14 +128,11 @@ void setup(void)
     Serial.begin(115200);
     delay(400);
 
-    // auto g = [](auto a) {return a;};
-
-    EXP_GAINS.kp = 0.75; //mA per tick
-    EXP_GAINS.kd = 2.8;
     last_command_ts = micros();
     last_print_ts = micros();
 
-    controller_bus.initializeCANBus();
+    // I'm so sorry you have to read this. This code just sets up the callback for the CAN bus.
+    controller_bus.can().onReceive([](const CAN_message_t &msg) { controller_bus.callback(msg); });
 }
 
 void loop()
@@ -148,31 +144,31 @@ void loop()
         {
         case Mode::IDLE:
         {
-            zeroTorqueCommands(torque_commands, C610Bus<>::MAX_PER_CAN);
+            zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
             break;
         }
         case Mode::PID:
         {
             float target_pos = 0;
-            zeroTorqueCommands(torque_commands, C610Bus<>::MAX_PER_CAN);
-            for (int i = 0; i <  C610Bus<>::MAX_PER_CAN; i++)
+            zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
+            for (int i = 0; i < C610Bus<>::SIZE; i++)
             {
                 pid(torque_commands[i], controller_bus.get(i).counts(), controller_bus.get(i).rpm(), target_pos, 0, EXP_GAINS);
                 torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE, MAX_TORQUE);
             }
-            maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::MAX_PER_CAN);
+            maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::SIZE);
             break;
         }
         case Mode::CONST_TORQUE:
         {
-            zeroTorqueCommands(torque_commands, C610Bus<>::MAX_PER_CAN);
+            zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
             torque_commands[CONST_TORQUE_ESC] = torque_setting;
             break;
         }
         case Mode::RIPPLE_TORQUE:
         {
-            zeroTorqueCommands(torque_commands, C610Bus<>::MAX_PER_CAN);
-            float phase = 90.0 * millis() / 1000.0; // 30hz // 20hz
+            zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
+            float phase = 90.0 * millis() / 1000.0;                                // 30hz // 20hz
             torque_commands[CONST_TORQUE_ESC] = torque_setting + 600 * sin(phase); // 30hz ripple
             break;
         }
@@ -188,7 +184,7 @@ void loop()
 
     if (micros() - last_print_ts > PRINT_DELAY)
     {
-        printMotorStates(controller_bus, torque_commands, C610Bus<>::MAX_PER_CAN);
+        printMotorStates(controller_bus, torque_commands, C610Bus<>::SIZE);
     }
 
     while (Serial.available())

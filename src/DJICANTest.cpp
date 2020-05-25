@@ -8,32 +8,30 @@ const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 
 const int32_t MAX_TORQUE = 5000;
+PDGAINS EXP_GAINS = {0.2, 1.4};
+const uint8_t CONST_TORQUE_ESC = 2;
 
 C610Bus<CAN2> controller_bus;
-C610Bus<CAN1> controller_bus2;
-
-PDGAINS EXP_GAINS = {0.2, 1.4};
 
 int32_t torque_setting = 0;
 int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
 const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
 
-enum Mode
+enum ControlMode
 {
     CONST_TORQUE,
     RIPPLE_TORQUE,
     PID,
     IDLE
 };
-const uint8_t CONST_TORQUE_ESC = 2;
-Mode control_mode = Mode::PID;
+ControlMode control_mode = ControlMode::PID;
 
-enum PositionMode
+enum PIDMode
 {
     SIN,
     CONST
 };
-PositionMode position_mode = PositionMode::CONST;
+PIDMode position_mode = PIDMode::CONST;
 
 long last_command_ts;
 long last_print_ts;
@@ -142,12 +140,12 @@ void loop()
     {
         switch (control_mode)
         {
-        case Mode::IDLE:
+        case ControlMode::IDLE:
         {
             zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
             break;
         }
-        case Mode::PID:
+        case ControlMode::PID:
         {
             float target_pos = 0;
             zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
@@ -159,13 +157,13 @@ void loop()
             maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::SIZE);
             break;
         }
-        case Mode::CONST_TORQUE:
+        case ControlMode::CONST_TORQUE:
         {
             zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
             torque_commands[CONST_TORQUE_ESC] = torque_setting;
             break;
         }
-        case Mode::RIPPLE_TORQUE:
+        case ControlMode::RIPPLE_TORQUE:
         {
             zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
             float phase = 90.0 * millis() / 1000.0;                                // 30hz // 20hz

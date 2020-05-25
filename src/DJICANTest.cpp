@@ -9,7 +9,8 @@ enum ControlMode
     CONST_TORQUE,
     RIPPLE_TORQUE,
     PID,
-    IDLE
+    IDLE,
+    PID_ADJUSTED
 };
 
 enum PIDMode
@@ -22,11 +23,11 @@ enum PIDMode
 const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 
-const int32_t MAX_TORQUE = 5000;
-PDGAINS EXP_GAINS = {0.2, 1.4};
+const int32_t MAX_TORQUE = 6000;
+PDGAINS EXP_GAINS = {0.15, 1.5};
 const uint8_t CONST_TORQUE_ESC = 2;
 const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
-ControlMode control_mode = ControlMode::PID;
+ControlMode control_mode = ControlMode::PID_ADJUSTED;
 PIDMode position_mode = PIDMode::CONST;
 ////////////////////// END CONFIG ///////////////////////
 
@@ -101,11 +102,11 @@ void parseSerialInput(char c, int32_t &torque_setting)
 template <CAN_DEV_TABLE _bus>
 void printMotorStates(C610Bus<_bus> bus, int32_t torque_commands[], uint8_t torque_length)
 {
-    Serial.print(millis());
+    Serial.print(millis() % 5000);
     Serial.print("\t");
     for (uint8_t i = 0; i < C610Bus<>::SIZE; i++)
     {
-        Serial.print(bus.get(i).counts());
+        Serial.print(bus.get(i).counts() / 100);
         Serial.print("\t");
         Serial.print(bus.get(i).rpm());
         Serial.print("\t");
@@ -154,6 +155,38 @@ void loop()
             for (int i = 0; i < C610Bus<>::SIZE; i++)
             {
                 pid(torque_commands[i], controller_bus.get(i).counts(), controller_bus.get(i).rpm(), target_pos, 0, EXP_GAINS);
+                torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE / 1.3, MAX_TORQUE / 1.3);
+            }
+            maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::SIZE);
+            break;
+        }
+        case ControlMode::PID_ADJUSTED:
+        {
+            float target_pos = 0;
+            zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
+            for (int i = 0; i < C610Bus<>::SIZE; i++)
+            {
+                // torque_commands[i] = 1000;
+                pid(torque_commands[i], controller_bus.get(i).counts(), controller_bus.get(i).rpm(), target_pos, 0, EXP_GAINS);
+                torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE / 1.3, MAX_TORQUE / 1.3);
+                // if (abs(controller_bus.get(i).rpm()) > 0)
+                // {
+                if (torque_commands[i] * controller_bus.get(i).rpm() > 0)
+                {
+                    // Positive work
+                    torque_commands[i] *= 1.3;
+                }
+                else if (torque_commands[i] * controller_bus.get(i).rpm() < 0)
+                {
+                    torque_commands[i] /= 1.3;
+                    // Negative work
+                }
+                else
+                {
+                    // torque_commands[i] = 0;
+                    torque_commands[i] /= 2;
+                }
+
                 torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE, MAX_TORQUE);
             }
             maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::SIZE);

@@ -24,9 +24,9 @@ const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 
 const int32_t MAX_TORQUE = 6000;
-PDGAINS EXP_GAINS = {0.15, 1.5};
+PDGAINS EXP_GAINS = {0.5, 3.5};
 const uint8_t CONST_TORQUE_ESC = 2;
-const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {0, 0, 1, 0, 0, 0, 0, 0};
+const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {1, 1, 1, 0, 0, 0, 0, 0};
 ControlMode control_mode = ControlMode::PID_ADJUSTED;
 PIDMode position_mode = PIDMode::CONST;
 ////////////////////// END CONFIG ///////////////////////
@@ -35,6 +35,7 @@ C610Bus<CAN2> controller_bus;
 
 int32_t torque_setting = 0;
 int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
+int32_t target_positions[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;
@@ -69,7 +70,7 @@ void maskTorques(int32_t torque_commands[], const uint8_t mask[], const uint8_t 
     }
 }
 
-void parseSerialInput(char c, int32_t &torque_setting)
+void parseSerialInput(char c, int32_t &torque_setting, int32_t (&target_positions)[C610Bus<>::SIZE])
 {
     // Right now this code treats all inputs as constant torque requests
     // TODO: make the serial parsing more flexible
@@ -87,16 +88,51 @@ void parseSerialInput(char c, int32_t &torque_setting)
     uint8_t int_input = c - '0';
     if (int_input >= 0 && int_input <= 20)
     {
-        torque_setting = int_input * 1000;
+        for(int i=0; i<C610Bus<>::SIZE; i++) {
+            target_positions[i] = int_input * 8192;
+        }
     }
     if (c == '`')
     {
-        torque_setting = 0;
+        for(int i=0; i<C610Bus<>::SIZE; i++) {
+            target_positions[i] = 0 * 8192;
+        }
     }
+    if (c == 's')
+    {
+        target_positions[0] = 0.0*8192;
+        // target_positions[1] = 7.0*8192;
+        target_positions[2] = -14.0*8192;
+    }
+    if (c == 'j')
+    {
+        target_positions[0] = 0;
+        // target_positions[1] = 0;
+        target_positions[2] = 0;
+    }
+
     while (Serial.available())
     {
         Serial.read();
     }
+
+    // Serial.print("Received: ");
+    // Serial.print(c);
+    // Serial.println(" * 1000mA");
+
+    // uint8_t int_input = c - '0';
+    // if (int_input >= 0 && int_input <= 20)
+    // {
+    //     torque_setting = int_input * 1000;
+    // }
+    // if (c == '`')
+    // {
+    //     torque_setting = 0;
+    // }
+    // while (Serial.available())
+    // {
+    //     Serial.read();
+    // }
 }
 
 template <CAN_DEV_TABLE _bus>
@@ -162,31 +198,28 @@ void loop()
         }
         case ControlMode::PID_ADJUSTED:
         {
-            float target_pos = 0;
             zeroTorqueCommands(torque_commands, C610Bus<>::SIZE);
+            target_positions[1] = 0.5 * controller_bus.get(2).counts();
+
             for (int i = 0; i < C610Bus<>::SIZE; i++)
             {
-                // torque_commands[i] = 1000;
-                pid(torque_commands[i], controller_bus.get(i).counts(), controller_bus.get(i).rpm(), target_pos, 0, EXP_GAINS);
-                torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE / 1.3, MAX_TORQUE / 1.3);
-                // if (abs(controller_bus.get(i).rpm()) > 0)
-                // {
+                pid(torque_commands[i], controller_bus.get(i).counts(), controller_bus.get(i).rpm(), target_positions[i], 0, EXP_GAINS);
+                torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE, MAX_TORQUE);
                 if (torque_commands[i] * controller_bus.get(i).rpm() > 0)
                 {
                     // Positive work
-                    torque_commands[i] *= 1.3;
+                    torque_commands[i] *= 1.0;
                 }
                 else if (torque_commands[i] * controller_bus.get(i).rpm() < 0)
                 {
-                    torque_commands[i] /= 1.3;
+                    torque_commands[i] /= 1.7;
                     // Negative work
                 }
                 else
                 {
                     // torque_commands[i] = 0;
-                    torque_commands[i] /= 2;
+                    torque_commands[i] /= 1.7;
                 }
-
                 torque_commands[i] = constrain(torque_commands[i], -MAX_TORQUE, MAX_TORQUE);
             }
             maskTorques(torque_commands, CONTROL_MASK, C610Bus<>::SIZE);
@@ -223,7 +256,7 @@ void loop()
     while (Serial.available())
     {
         char c = Serial.read();
-        parseSerialInput(c, torque_setting);
+        parseSerialInput(c, torque_setting, target_positions);
     }
 }
 

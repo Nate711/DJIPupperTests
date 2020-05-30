@@ -1,9 +1,8 @@
 #include "C610.h"
 #include <FlexCAN_T4.h>
 
-C610::C610(const int32_t counts_per_rev)
+C610::C610()
 {
-    _counts_per_rev = counts_per_rev;
     _initialized_mechanical_angle = false;
     _rotations = 0;
     _last_pos_measurement = 0;
@@ -53,15 +52,15 @@ void C610::updateState(C610Feedback f)
 
     // Position
     int32_t delta = f.counts - _last_pos_measurement;
-    if (delta > _counts_per_rev / 2)
+    if (delta > COUNTS_PER_REV / 2)
     { // Crossed from >= 0 counts to <= 8191 counts. Could also trigger if spinning super fast (>2000rps)
         _rotations -= 1;
     }
-    else if (delta < -_counts_per_rev / 2)
+    else if (delta < -COUNTS_PER_REV / 2)
     { // Crossed from <= 8191 counts to >= 0 counts. Could also trigger if spinning super fast (>2000rps)
         _rotations += 1;
     }
-    _counts = _rotations * _counts_per_rev + f.counts;
+    _counts = _rotations * COUNTS_PER_REV + f.counts;
     _last_pos_measurement = f.counts;
 
     // Velocity

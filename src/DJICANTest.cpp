@@ -33,6 +33,8 @@ PIDMode position_mode = PIDMode::CONST;
 
 C610Bus<CAN2> controller_bus;
 
+DriveSystem drive;
+
 int32_t torque_setting = 0;
 int32_t torque_commands[C610Bus<>::SIZE] = {0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -132,8 +134,12 @@ void setup(void)
     last_command_ts = micros();
     last_print_ts = micros();
 
+    controller_bus.initializeCAN();
     // I'm so sorry you have to read this. This code just sets up the callback for the CAN bus.
     controller_bus.can().onReceive([](const CAN_message_t &msg) { controller_bus.callback(msg); });
+
+    drive.RearBus().can().onReceive([](const CAN_message_t &msg) { drive.RearBus().callback(msg); });
+    drive.FrontBus().can().onReceive([](const CAN_message_t &msg) { drive.FrontBus().callback(msg); });
 }
 
 void loop()

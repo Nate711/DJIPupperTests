@@ -1,5 +1,3 @@
-#include "C610Bus.h"
-
 template <CAN_DEV_TABLE _bus>
 C610Bus<_bus>::C610Bus()
 {

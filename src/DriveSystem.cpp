@@ -1,9 +1,22 @@
 #include "DriveSystem.h"
 
+// TODO Put in a array helper class?
+template <class T, int N>
+void FillZeros(T (&array)[N])
+{
+    for (int i = 0; i < N; i++)
+    {
+        array[i] = T(0);
+    }
+}
+
 DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     InitializeDrive();
+    FillZeros(position_reference_);
+    FillZeros(velocity_reference_);
+    FillZeros(current_reference_);
 }
 
 void DriveSystem::InitializeDrive()
@@ -16,24 +29,41 @@ void DriveSystem::InitializeDrive()
     // drive_system.frontBus().onReceive([](const CAN_message_t &msg) { drive_system.frontBus().callback(msg); });
 }
 
-void DriveSystem::SetPosition(uint8_t i, float position_target)
+void DriveSystem::CheckForCANMessages()
+{
+    front_bus_.pollCAN();
+    rear_bus_.pollCAN();
+}
+
+void DriveSystem::SetIdle()
+{
+    control_mode_ = DriveControlMode::kIdle;
+}
+
+void DriveSystem::SetPosition(uint8_t i, float position_reference)
 {
     control_mode_ = DriveControlMode::kPositionControl;
-    position_target_[i] = position_target;
+    position_reference_[i] = position_reference;
 }
 
 void DriveSystem::SetPositionGains(uint8_t i, float kp, float kd)
 {
-    position_kp_[i] = kp;
-    position_kd_[i] = kd;
+    position_gains_[i].kp = kp;
+    position_gains_[i].kd = kd;
 }
 
 void DriveSystem::SetUniformPositionGains(uint8_t i, float kp, float kd)
 {
-    for (uint8_t i = 0; i < kNumActautors; i++)
+    for (uint8_t i = 0; i < kNumActuators; i++)
     {
         SetPositionGains(i, kp, kd);
     }
+}
+
+void DriveSystem::SetCurrent(uint8_t i, float current_reference)
+{
+    control_mode_ = DriveControlMode::kCurrentControl;
+    current_reference_[i] = current_reference;
 }
 
 void DriveSystem::Update()
@@ -42,14 +72,22 @@ void DriveSystem::Update()
     {
     case DriveControlMode::kIdle:
     {
+        CommandIdle();
         break;
     }
     case DriveControlMode::kPositionControl:
     {
+        float pid_current[kNumActuators];
+        for (uint8_t i = 0; i < kNumActuators; i++)
+        {
+            PD(pid_current[i], GetActuatorPosition(i), GetActuatorVelocity(i), position_reference_[i], velocity_reference_[i], position_gains_[i]);
+        }
+        CommandCurrents(pid_current);
         break;
     }
     case DriveControlMode::kCurrentControl:
     {
+        CommandCurrents(current_reference_);
         break;
     }
     }
@@ -65,13 +103,32 @@ C610Bus<CAN2> DriveSystem::RearBus()
     return rear_bus_;
 }
 
-void DriveSystem::CommandTorques(const int32_t (&torques)[DriveSystem::kNumActautors])
+void DriveSystem::CommandIdle()
+{
+    float currents[kNumActuators];
+    FillZeros(currents);
+    CommandCurrents(currents);
+}
+
+// TODO put this somewhere else
+template <int N>
+void DriveSystem::CurrentConversion(int32_t (&out)[N], const float (&in)[N])
+{
+    for (int i = 0; i < N; i++)
+    {
+        out[i] = in[i] * kMilliAmpPerAmp;
+    }
+}
+
+void DriveSystem::CommandCurrents(const float (&currents)[DriveSystem::kNumActuators])
 {
     // TODO: sanity checks
-    front_bus_.commandTorques(torques[0], torques[1], torques[2], torques[3], 0);
-    front_bus_.commandTorques(torques[4], torques[5], 0, 0, 1);
-    rear_bus_.commandTorques(torques[6], torques[7], torques[8], torques[9], 0);
-    rear_bus_.commandTorques(torques[10], torques[11], 0, 0, 1);
+    int32_t currents_mA[kNumActuators];
+    CurrentConversion(currents_mA, currents);
+    front_bus_.commandTorques(currents_mA[0], currents_mA[1], currents_mA[2], currents_mA[3], 0);
+    front_bus_.commandTorques(currents_mA[4], currents_mA[5], 0, 0, 1);
+    rear_bus_.commandTorques(currents_mA[6], currents_mA[7], currents_mA[8], currents_mA[9], 0);
+    rear_bus_.commandTorques(currents_mA[10], currents_mA[11], 0, 0, 1);
 }
 
 C610 DriveSystem::GetController(uint8_t i)
@@ -93,7 +150,7 @@ C610 DriveSystem::GetController(uint8_t i)
     }
 }
 
-float DriveSystem::GetActuatorPositions(uint8_t i)
+float DriveSystem::GetActuatorPosition(uint8_t i)
 {
     return GetController(i).counts() / kCountsPerRad;
 }
@@ -106,4 +163,48 @@ float DriveSystem::GetActuatorVelocity(uint8_t i)
 float DriveSystem::GetActuatorCurrent(uint8_t i)
 {
     return GetController(i).torque() / kMilliAmpPerAmp;
+}
+
+void DriveSystem::PrintStatus(DrivePrintOptions options)
+{
+    char delimiter = '\t';
+    for (uint8_t i = 0; i < kNumActuators; i++)
+    {
+        if (options.time)
+        {
+            Serial.print(millis());
+            Serial.print(delimiter);
+        }
+        if (options.positions)
+        {
+            Serial.print(GetActuatorPosition(i), 3);
+            Serial.print(delimiter);
+        }
+        if (options.velocities)
+        {
+            Serial.print(GetActuatorVelocity(i), 1);
+            Serial.print(delimiter);
+        }
+        if (options.currents)
+        {
+            Serial.print(GetActuatorCurrent(i), 3);
+            Serial.print(delimiter);
+        }
+        if (options.position_references)
+        {
+            Serial.print(position_reference_[i], 3);
+            Serial.print(delimiter);
+        }
+        if (options.velocity_references)
+        {
+            Serial.print(velocity_reference_[i], 1);
+            Serial.print(delimiter);
+        }
+        if (options.current_references)
+        {
+            Serial.print(current_reference_[i], 3);
+            Serial.print(delimiter);
+        }
+    }
+    Serial.println();
 }

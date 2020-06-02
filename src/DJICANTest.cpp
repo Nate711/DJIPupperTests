@@ -8,16 +8,12 @@ const int PRINT_DELAY = 20 * 1000;
 const int CONTROL_DELAY = 1000;
 
 const int32_t MAX_TORQUE = 6000;
-PDGains PID_GAINS = {0.15, 1.5};
-const uint8_t CONST_TORQUE_ESC = 2;
-const uint8_t CONTROL_MASK[DriveSystem::kNumActuators] = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 ////////////////////// END CONFIG ///////////////////////
 
 
 DriveSystem drive;
 
 int32_t torque_setting = 0;
-int32_t torque_commands[DriveSystem::kNumActuators] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 long last_command_ts;
 long last_print_ts;
@@ -78,6 +74,15 @@ void setup(void)
     // Set up the CAN bus message callbacks. 
     drive.RearBus().can().onReceive([](const CAN_message_t &msg) { drive.RearBus().callback(msg); });
     drive.FrontBus().can().onReceive([](const CAN_message_t &msg) { drive.FrontBus().callback(msg); });
+
+
+    ////////////// Runtime config /////////////////////
+    // Put it in PID mode
+    for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
+    {
+        drive.SetPosition(i, 0.0);
+    }
+    drive.SetUniformPositionGains(0.0, 0.0);
 }
 
 void loop()

@@ -7,7 +7,9 @@
 enum class DriveControlMode
 {
     kIdle,
+    kError, // For robot errors, not coding mistakes.
     kPositionControl,
+    kComplianceControl,
     kCurrentControl,
 };
 
@@ -42,6 +44,15 @@ private:
 
     float current_reference_[kNumActuators];
 
+    // Indicates which motors are "active". Those which are inactive get 0 torque.
+    bool active_mask_[kNumActuators];
+
+    // Maximum current for current control and PD mode.
+    float max_current_;
+
+    // Maximum commandable current before system triggers a fault. Different than SW saturation current.
+    float fault_current_;
+
     static constexpr float kReduction = 36.0F;
     static constexpr float kCountsPerRad = C610::COUNTS_PER_REV * kReduction / (2 * M_PI);
     static constexpr float kRPMPerRadS = kReduction * 2.0F * M_PI / 60.0F;
@@ -49,10 +60,6 @@ private:
 
     // Initialize the two CAN buses
     void InitializeDrive();
-
-    // Converts between milliamps and amps for an array
-    template <int N>
-    void CurrentConversion(int32_t (&out)[N], const float (&in)[N]);
 
 public:
     // Construct drive system and initialize CAN buses.
@@ -77,10 +84,21 @@ public:
     void SetPositionGains(uint8_t i, float kp, float kd);
 
     // Set position gains for all actuators
-    void SetUniformPositionGains(uint8_t i, float kp, float kd);
+    void SetUniformPositionGains(float kp, float kd);
 
     // Set current target for actuator i
     void SetCurrent(uint8_t i, float target_current);
+
+    // Set current level that would trigger a fault
+    void SetFaultCurrent(float fault_current);
+
+    void ActivateActautor(uint8_t i);
+
+    void DeactivateActuator(uint8_t);
+
+    void ActivateAll();
+
+    void DeactivateAll();
 
     // Send zero torques to the escs.
     void CommandIdle();

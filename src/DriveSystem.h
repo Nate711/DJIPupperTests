@@ -66,6 +66,8 @@ public:
     // Set position and current-control references to zero.
     DriveSystem();
 
+    // static void SetCANCallbacks(DriveSystem d);
+
     // Run one iteration through the control loop. Action depends on the current mode.
     void Update();
 

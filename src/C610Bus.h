@@ -28,6 +28,8 @@ public:
     void commandTorques(const int32_t torque0, const int32_t torque1 = 0, const int32_t torque2 = 0, const int32_t torque3 = 0, const uint8_t subbus = 0);
     C610 &get(const uint8_t i);
     FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16> &can();
+
+    // static void SetCANCallback(C610Bus<_bus> &bus);
 };
 
 #include "C610Bus.tpp"

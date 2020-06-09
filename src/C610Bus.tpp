@@ -48,7 +48,7 @@ void C610Bus<_bus>::callback(const CAN_message_t &msg)
 template <CAN_DEV_TABLE _bus>
 void C610Bus<_bus>::commandTorques(const int32_t torque0, const int32_t torque1, const int32_t torque2, const int32_t torque3, const uint8_t subbus)
 {
-    if (~is_initialized)
+    if (!is_initialized)
     {
         Serial.println("Bus must be initialized before use.");
     }
@@ -93,3 +93,9 @@ FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16> &C610Bus<_bus>::can()
 {
     return _can;
 }
+
+// template <CAN_DEV_TABLE _bus>
+// void C610Bus<_bus>::SetCANCallback(C610Bus<_bus> &bus)
+// {
+//     bus.can().onReceive([bus](const CAN_message_t &msg){bus.callback(msg);});
+// }

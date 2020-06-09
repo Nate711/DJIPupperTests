@@ -73,13 +73,17 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 
 void DriveSystem::InitializeDrive()
 {
-    rear_bus_.initializeCAN();
     front_bus_.initializeCAN();
-
-    // Must call the following lines in a static setting
-    // drive_system.rearBus().can().onReceive([](const CAN_message_t &msg) { drive_system.rearBus().callback(msg); });
-    // drive_system.frontBus().onReceive([](const CAN_message_t &msg) { drive_system.frontBus().callback(msg); });
+    rear_bus_.initializeCAN();
 }
+
+// void DriveSystem::SetCANCallbacks(DriveSystem drive)
+// {
+//     // Must call the following lines in a static setting
+//     // C610Bus<CAN1>::SetCANCallback(d.FrontBus());
+//     // C610Bus<CAN2>::SetCANCallback(d.RearBus());
+//     C610Bus<CAN1>::SetCANCallback(drive.FrontBus());
+// }
 
 void DriveSystem::CheckForCANMessages()
 {
@@ -274,13 +278,13 @@ float DriveSystem::GetActuatorCurrent(uint8_t i)
 void DriveSystem::PrintStatus(DrivePrintOptions options)
 {
     char delimiter = '\t';
+    if (options.time)
+    {
+        Serial.print(millis());
+        Serial.print(delimiter);
+    }
     for (uint8_t i = 0; i < kNumActuators; i++)
     {
-        if (options.time)
-        {
-            Serial.print(millis());
-            Serial.print(delimiter);
-        }
         if (options.positions)
         {
             Serial.print(GetActuatorPosition(i), 3);

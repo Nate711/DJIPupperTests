@@ -10,27 +10,12 @@ const int CONTROL_DELAY = 1000;
 const int32_t MAX_TORQUE = 6000;
 ////////////////////// END CONFIG ///////////////////////
 
-
 DriveSystem drive;
 
 int32_t torque_setting = 0;
 
 long last_command_ts;
 long last_print_ts;
-
-/*
-TODOs
-object-based control of motors
-one high-level object to control all escs (12 in total)
-- needs to keep two separate can objects
-- needs to assign esc objects to certain can objecst
-- set torques
-- callback to update objects
-- wrapper for retrieving all positions and velocities
-- send torques (keeps track of which subbus)
-object per esc
-- update position / velocity, keep track of wrap-around
-*/
 
 
 void parseSerialInput(char c, int32_t &torque_setting)
@@ -78,11 +63,12 @@ void setup(void)
 
     ////////////// Runtime config /////////////////////
     // Put it in PID mode
-    for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
-    {
-        drive.SetPosition(i, 0.0);
-    }
-    drive.SetUniformPositionGains(0.0, 0.0);
+    // for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
+    // {
+    //     drive.SetPosition(i, 0.0);
+    // }
+    // drive.SetUniformPositionGains(0.0, 0.0);
+    drive.SetIdle();
 }
 
 void loop()
@@ -97,6 +83,12 @@ void loop()
     if (micros() - last_print_ts > PRINT_DELAY)
     {
         DrivePrintOptions options;
+        options.current_references = false;
+        options.currents = false;
+        options.velocities = false;
+        options.velocity_references = false;
+        options.position_references = false;
+
         drive.PrintStatus(options);
         last_print_ts = micros();
     }

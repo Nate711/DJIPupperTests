@@ -20,14 +20,14 @@ enum PIDMode
 };
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 5 * 1000;
+const int PRINT_DELAY = 10 * 1000;
 const int CONTROL_DELAY = 1000;
 
 const int32_t MAX_TORQUE = 10000;
-PDGAINS EXP_GAINS = {4.0, 5.0};
+PDGAINS EXP_GAINS = {1.0, 3.0};
 const uint8_t CONST_TORQUE_ESC = 2;
 const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {1, 1, 1, 0, 0, 0, 0, 0};
-ControlMode control_mode = ControlMode::IDLE;
+ControlMode control_mode = ControlMode::PID_ADJUSTED;
 ////////////////////// END CONFIG ///////////////////////
 
 C610Bus<CAN2> controller_bus;

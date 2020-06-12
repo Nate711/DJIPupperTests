@@ -28,7 +28,7 @@ void Constrain(T (&array)[N], T min, T max)
 {
     for (int i = 0; i < N; i++)
     {
-        array[i] = array[i] <= min ? min : (array[i] >= max ? max : array[i]);
+        array[i] = (array[i] <= min) ? min : (array[i] >= max ? max : array[i]);
     }
 }
 
@@ -65,9 +65,11 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     fault_current_ = 10.0; // TODO: don't make this so high at default
+    max_current_ = 2.0; // TODO: make this a parameter
     FillZeros(position_reference_);
     FillZeros(velocity_reference_);
     FillZeros(current_reference_);
+    FillZeros(active_mask_);
 }
 
 void DriveSystem::CheckForCANMessages()
@@ -270,6 +272,8 @@ void DriveSystem::PrintStatus(DrivePrintOptions options)
     }
     for (uint8_t i = 0; i < kNumActuators; i++)
     {
+        if (!active_mask_[i])
+            continue;
         if (options.positions)
         {
             Serial.print(GetActuatorPosition(i), 3);

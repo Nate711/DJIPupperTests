@@ -60,12 +60,13 @@ void setup(void)
     // drive.SetCANCallbacks();
     ////////////// Runtime config /////////////////////
     // Put it in PID mode
-    // for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
-    // {
-    //     drive.SetPosition(i, 0.0);
-    // }
-    // drive.SetUniformPositionGains(0.0, 0.0);
-    drive.SetIdle();
+    for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
+    {
+        drive.SetPosition(i, 0.0);
+    }
+    drive.SetUniformPositionGains(4.5, 0.0003);
+    drive.ActivateActautor(6);
+    // drive.SetIdle();
 }
 
 void loop()
@@ -82,7 +83,7 @@ void loop()
 
     if (micros() - last_command_ts > CONTROL_DELAY)
     {
-        // drive.Update();
+        drive.Update();
         last_command_ts = micros();
     }
 
@@ -91,7 +92,7 @@ void loop()
         DrivePrintOptions options;
         options.time = false;
         options.current_references = false;
-        options.currents = false;
+        options.currents = true;
         options.velocities = false;
         options.velocity_references = false;
         options.position_references = false;

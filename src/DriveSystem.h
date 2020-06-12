@@ -42,6 +42,7 @@ private:
 
     PDGains position_gains_[kNumActuators];
 
+    // Holder for current control mode. Otherwise not used.
     float current_reference_[kNumActuators];
 
     // Indicates which motors are "active". Those which are inactive get 0 torque.
@@ -65,9 +66,6 @@ public:
     // Construct drive system and initialize CAN buses.
     // Set position and current-control references to zero.
     DriveSystem();
-
-    // Set up the CAN bus' callback mechanism
-    void SetCANCallbacks();
 
     // Run one iteration through the control loop. Action depends on the current mode.
     void Update();

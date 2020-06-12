@@ -66,7 +66,8 @@ public:
     // Set position and current-control references to zero.
     DriveSystem();
 
-    // static void SetCANCallbacks(DriveSystem d);
+    // Set up the CAN bus' callback mechanism
+    void SetCANCallbacks();
 
     // Run one iteration through the control loop. Action depends on the current mode.
     void Update();
@@ -131,10 +132,10 @@ public:
     float GetActuatorCurrent(uint8_t i);
 
     // Get the C610Bus object for the front actuators.
-    C610Bus<CAN1> FrontBus();
+    C610Bus<CAN1>& FrontBus();
 
     // Get the C610Bus object for the rear actuators.
-    C610Bus<CAN2> RearBus();
+    C610Bus<CAN2>& RearBus();
 
     // Print drive information to screen
     void PrintStatus(DrivePrintOptions options);

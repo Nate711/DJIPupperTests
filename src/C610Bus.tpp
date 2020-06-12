@@ -5,6 +5,7 @@ C610Bus<_bus>::C610Bus()
     {
         _controllers[i] = C610();
     }
+    initializeCAN();
 }
 
 template <CAN_DEV_TABLE _bus>
@@ -22,10 +23,8 @@ void C610Bus<_bus>::initializeCAN()
     _can.enableFIFO();
     _can.enableFIFOInterrupt();
     _can.mailboxStatus();
+    _can.onReceive([this](const CAN_message_t &msg) { this->callback(msg); });
     is_initialized = true;
-
-    // You must set up the onReceive outside of the object
-    // controller_bus.can().onReceive([](const CAN_message_t &msg){controller_bus.callback(msg);});
 }
 
 template <CAN_DEV_TABLE _bus>
@@ -93,9 +92,3 @@ FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16> &C610Bus<_bus>::can()
 {
     return _can;
 }
-
-// template <CAN_DEV_TABLE _bus>
-// void C610Bus<_bus>::SetCANCallback(C610Bus<_bus> &bus)
-// {
-//     bus.can().onReceive([bus](const CAN_message_t &msg){bus.callback(msg);});
-// }

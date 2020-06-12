@@ -4,7 +4,7 @@
 #include "DriveSystem.h"
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 20 * 1000;
+const int PRINT_DELAY = 2 * 1000;
 const int CONTROL_DELAY = 1000;
 
 const int32_t MAX_TORQUE = 6000;
@@ -56,11 +56,8 @@ void setup(void)
     last_command_ts = micros();
     last_print_ts = micros();
 
-    // Set up the CAN bus message callbacks. 
-    drive.RearBus().can().onReceive([](const CAN_message_t &msg) { drive.RearBus().callback(msg); });
-    drive.FrontBus().can().onReceive([](const CAN_message_t &msg) { drive.FrontBus().callback(msg); });
-
-
+ 
+    // drive.SetCANCallbacks();
     ////////////// Runtime config /////////////////////
     // Put it in PID mode
     // for(uint8_t i=0;i<DriveSystem::kNumActuators;i++)
@@ -74,15 +71,25 @@ void setup(void)
 void loop()
 {
     drive.CheckForCANMessages();
+    // back.pollCAN();
+
+    // for(uint8_t i=0; i<8; i++)
+    // {
+    //     Serial.print(back.get(i).counts());
+    // }
+    // Serial.println();
+
+
     if (micros() - last_command_ts > CONTROL_DELAY)
     {
-        drive.Update();
+        // drive.Update();
         last_command_ts = micros();
     }
 
     if (micros() - last_print_ts > PRINT_DELAY)
     {
         DrivePrintOptions options;
+        options.time = false;
         options.current_references = false;
         options.currents = false;
         options.velocities = false;

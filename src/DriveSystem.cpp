@@ -65,25 +65,10 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     fault_current_ = 10.0; // TODO: don't make this so high at default
-    InitializeDrive();
     FillZeros(position_reference_);
     FillZeros(velocity_reference_);
     FillZeros(current_reference_);
 }
-
-void DriveSystem::InitializeDrive()
-{
-    front_bus_.initializeCAN();
-    rear_bus_.initializeCAN();
-}
-
-// void DriveSystem::SetCANCallbacks(DriveSystem drive)
-// {
-//     // Must call the following lines in a static setting
-//     // C610Bus<CAN1>::SetCANCallback(d.FrontBus());
-//     // C610Bus<CAN2>::SetCANCallback(d.RearBus());
-//     C610Bus<CAN1>::SetCANCallback(drive.FrontBus());
-// }
 
 void DriveSystem::CheckForCANMessages()
 {
@@ -161,19 +146,19 @@ void DriveSystem::Update()
         break;
     }
     case DriveControlMode::kCurrentControl:
-    {   
+    {
         CommandCurrents(current_reference_);
         break;
     }
     }
 }
 
-C610Bus<CAN1> DriveSystem::FrontBus()
+C610Bus<CAN1> &DriveSystem::FrontBus()
 {
     return front_bus_;
 }
 
-C610Bus<CAN2> DriveSystem::RearBus()
+C610Bus<CAN2> &DriveSystem::RearBus()
 {
     return rear_bus_;
 }
@@ -216,7 +201,7 @@ void DriveSystem::CommandCurrents(const float (&currents)[kNumActuators])
 {
     // TODO: make this copy less stupid
     float current_command[kNumActuators];
-    for (uint8_t i=0; i<kNumActuators;i++)
+    for (uint8_t i = 0; i < kNumActuators; i++)
     {
         current_command[i] = currents[i];
     }

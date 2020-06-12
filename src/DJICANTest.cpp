@@ -20,15 +20,14 @@ enum PIDMode
 };
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 20 * 1000;
+const int PRINT_DELAY = 5 * 1000;
 const int CONTROL_DELAY = 1000;
 
-const int32_t MAX_TORQUE = 6000;
-PDGAINS EXP_GAINS = {0.5, 3.5};
+const int32_t MAX_TORQUE = 10000;
+PDGAINS EXP_GAINS = {4.0, 5.0};
 const uint8_t CONST_TORQUE_ESC = 2;
 const uint8_t CONTROL_MASK[C610Bus<>::SIZE] = {1, 1, 1, 0, 0, 0, 0, 0};
-ControlMode control_mode = ControlMode::PID_ADJUSTED;
-PIDMode position_mode = PIDMode::CONST;
+ControlMode control_mode = ControlMode::IDLE;
 ////////////////////// END CONFIG ///////////////////////
 
 C610Bus<CAN2> controller_bus;
@@ -142,16 +141,16 @@ void printMotorStates(C610Bus<_bus> bus, int32_t torque_commands[], uint8_t torq
     Serial.print("\t");
     for (uint8_t i = 0; i < C610Bus<>::SIZE; i++)
     {
-        Serial.print(bus.get(i).counts() / 100);
+        Serial.print(bus.get(i).counts());
         Serial.print("\t");
-        Serial.print(bus.get(i).rpm());
-        Serial.print("\t");
-        Serial.print(bus.get(i).torque());
-        Serial.print("\t");
-        Serial.print(torque_commands[i]);
-        Serial.print("\t");
+        // Serial.print(bus.get(i).rpm());
+        // Serial.print("\t");
+        // Serial.print(bus.get(i).torque());
+        // Serial.print("\t");
+        // Serial.print(torque_commands[i]);
+        // Serial.print("\t");
     }
-    Serial.print(torque_setting);
+    // Serial.print(torque_setting);
     // Serial.print("\t");
     // Serial.print(6000);
     // Serial.print("\t");

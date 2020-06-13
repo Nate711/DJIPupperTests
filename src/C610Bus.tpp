@@ -86,9 +86,3 @@ C610 &C610Bus<_bus>::get(const uint8_t i)
 {
     return _controllers[i];
 }
-
-template <CAN_DEV_TABLE _bus>
-FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16> &C610Bus<_bus>::can()
-{
-    return _can;
-}

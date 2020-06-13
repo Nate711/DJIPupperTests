@@ -1,4 +1,12 @@
-#include "C610Bus.h"
+template <CAN_DEV_TABLE _bus>
+C610Bus<_bus>::C610Bus()
+{
+    for (uint8_t i = 0; i < SIZE; i++)
+    {
+        _controllers[i] = C610();
+    }
+    initializeCAN();
+}
 
 template <CAN_DEV_TABLE _bus>
 void C610Bus<_bus>::pollCAN()
@@ -15,14 +23,8 @@ void C610Bus<_bus>::initializeCAN()
     _can.enableFIFO();
     _can.enableFIFOInterrupt();
     _can.mailboxStatus();
-    // You must set up the onReceive outside of the object
-    // controller_bus.can().onReceive([](const CAN_message_t &msg){controller_bus.callback(msg);});
-}
-
-template <CAN_DEV_TABLE _bus>
-C610Bus<_bus>::C610Bus()
-{
-    initializeCAN();
+    _can.onReceive([this](const CAN_message_t &msg) { this->callback(msg); });
+    is_initialized = true;
 }
 
 template <CAN_DEV_TABLE _bus>
@@ -45,6 +47,10 @@ void C610Bus<_bus>::callback(const CAN_message_t &msg)
 template <CAN_DEV_TABLE _bus>
 void C610Bus<_bus>::commandTorques(const int32_t torque0, const int32_t torque1, const int32_t torque2, const int32_t torque3, const uint8_t subbus)
 {
+    if (!is_initialized)
+    {
+        Serial.println("Bus must be initialized before use.");
+    }
     // IDs 0 through 3 go on ID 0x200
     // IDs 4 through 7 go on ID 0x1FF
 
@@ -79,10 +85,4 @@ template <CAN_DEV_TABLE _bus>
 C610 &C610Bus<_bus>::get(const uint8_t i)
 {
     return _controllers[i];
-}
-
-template <CAN_DEV_TABLE _bus>
-FlexCAN_T4<_bus, RX_SIZE_256, TX_SIZE_16> &C610Bus<_bus>::can()
-{
-    return _can;
 }

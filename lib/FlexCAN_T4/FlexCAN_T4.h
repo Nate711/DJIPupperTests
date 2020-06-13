@@ -34,6 +34,9 @@
 #include "circular_buffer.h"
 #include "imxrt_flexcan.h"
 
+#include <functional> // heavy import?
+
+
 typedef struct CAN_message_t {
   uint32_t id = 0;          // can identifier
   uint16_t timestamp = 0;   // FlexCAN time when message arrived
@@ -70,7 +73,8 @@ typedef struct CANFD_message_t {
   bool seq = 0;         // sequential frames
 } CANFD_message_t;
 
-typedef void (*_MB_ptr)(const CAN_message_t &msg); /* mailbox / global callbacks */
+
+typedef std::function<void(const CAN_message_t &msg)> _MB_ptr; /* mailbox / global callbacks */
 typedef void (*_MBFD_ptr)(const CANFD_message_t &msg); /* mailbox / global callbacks */
 
 typedef enum FLEXCAN_PINS {

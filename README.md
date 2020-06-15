@@ -41,9 +41,9 @@ long last_command = 0;
 void setup()
 {
     DriveSystem d; // Initialization
-    drive.SetPosition(0, 0.5); // Set the setpoint for motor 0 to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
-    drive.SetUniformPositionGains(4.5, 0.0003); // Set the pid gains for all motors to kp=4.5 [A/rad] and kd=0.0003 [A/rad/s]
-    drive.ActivateActautor(0); // Activate motor 0, all other motors will be idling (zero voltage)
+    d.SetPosition(0, 0.5); // Set the setpoint for motor 0 to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
+    d.SetUniformPositionGains(4.5, 0.0003); // Set the pid gains for all motors to kp=4.5 [A/rad] and kd=0.0003 [A/rad/s]
+    d.ActivateActautor(0); // Activate motor 0, all other motors will be idling (zero voltage)
     // Other control options include current control and idle.
 }
 void loop()

@@ -2,6 +2,8 @@
 #include <FlexCAN_T4.h>
 #include "C610Bus.h"
 #include "DriveSystem.h"
+#include <NonBlockingSerialBuffer.h>
+#include <ArduinoJson.h>
 
 ////////////////////// CONFIG ///////////////////////
 const int PRINT_DELAY = 2 * 1000;
@@ -11,54 +13,13 @@ const float MAX_TORQUE = 6.0;
 
 DriveSystem drive;
 
+// start char is <, stop char is '\n', use Serial as input stream, true for adding \0 string termination
+NonBlockingSerialBuffer<256> reader('<', '\n', Serial, true); 
+
+StaticJsonDocument<256> doc;
+
 long last_command_ts;
 long last_print_ts;
-
-void RespondToSerialInput(char c, DriveSystem &d)
-{
-    // Right now this code treats all inputs as position requests
-    // TODO: make the serial parsing more flexible
-
-    // Enter 'x' to go to IDLE mode!
-    if (c == 'x')
-    {
-        drive.SetIdle();
-    }
-
-    Serial.print("Received: ");
-    Serial.println(c);
-
-    uint8_t int_input = c - '0';
-    if (int_input >= 0 && int_input <= 20)
-    {
-        for (int i = 0; i < DriveSystem::kNumActuators; i++)
-        {
-            d.SetPosition(i, int_input / 4.0);
-        }
-    }
-    if (c == '`')
-    {
-        for (int i = 0; i < DriveSystem::kNumActuators; i++)
-        {
-            d.SetPosition(i, 0.0);
-        }
-    }
-    if (c == 's')
-    {
-        d.SetPosition(0, 1.5);
-        d.SetPosition(2, -3);
-    }
-    if (c == 'j')
-    {
-        d.SetPosition(0, 0.0);
-        d.SetPosition(2, 0.0);
-    }
-
-    while (Serial.available())
-    {
-        Serial.read();
-    }
-}
 
 void setup(void)
 {
@@ -77,15 +38,37 @@ void setup(void)
     {
         drive.SetPosition(i, 0.0);
     }
-    drive.ActivateActuator(0);
-    drive.ActivateActuator(2);
-
+    drive.ActivateActuator(6); // ID 1 on CAN2
+    drive.ActivateActuator(8); // ID 3 on CAN2
     // drive.SetIdle(); // alternative mode
 }
 
 void loop()
 {
     drive.CheckForCANMessages();
+    ParseResult r = reader.Feed();
+    if (r.result == ParseResultFlag::kDone)
+    {
+        Serial.print("GOT: ");
+        Serial.println(reader.buffer_);
+
+        doc.clear();
+        auto err = deserializeJson(doc, reader.buffer_);
+        if (err)
+        {
+            Serial.println(err.c_str());
+        }
+        else
+        {
+            auto obj = doc.as<JsonObject>();
+            for (JsonPair p : obj)
+            {                
+                if (p.value().is<char*>()) {
+                    Serial.println(p.value().as<char*>());
+                }
+            }
+        }
+    }
 
     if (micros() - last_command_ts > CONTROL_DELAY)
     {
@@ -95,14 +78,8 @@ void loop()
 
     if (micros() - last_print_ts > PRINT_DELAY)
     {
-        DrivePrintOptions options;
-        drive.PrintStatus(options);
+        // DrivePrintOptions options;
+        // drive.PrintStatus(options);
         last_print_ts = micros();
-    }
-
-    while (Serial.available())
-    {
-        char c = Serial.read();
-        RespondToSerialInput(c, drive);
     }
 }

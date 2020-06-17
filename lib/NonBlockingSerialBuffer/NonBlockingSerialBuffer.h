@@ -4,6 +4,7 @@
 enum class ParseResultFlag
 {
     kError,
+    kNothingToRead,
     kReading,
     kDone
 };
@@ -25,12 +26,12 @@ private:
     };
     uint8_t start_byte_;
     uint8_t stop_byte_;
-    bool string_termination_;
-    // uint8_t buffer_[kBufferSize];
     uint32_t write_index_ = 0;
 
     Stream *stream_;
-    ParserState state_;
+    bool string_termination_;
+
+    ParserState state_ = ParserState::kWaitingForStateCharacter;
 
 public:
     char buffer_[kBufferSize];
@@ -46,8 +47,10 @@ template <uint32_t kBufferSize>
 ParseResult NonBlockingSerialBuffer<kBufferSize>::Feed()
 {
     ParseResult result;
+    bool read_bytes = false;
     while (stream_->available())
     {
+        read_bytes = true;
         uint8_t in_byte = Serial.read();
         if (state_ == ParserState::kWaitingForStateCharacter)
         {
@@ -80,7 +83,7 @@ ParseResult NonBlockingSerialBuffer<kBufferSize>::Feed()
             }
         }
     }
-    result.result = ParseResultFlag::kReading;
+    result.result = read_bytes ? ParseResultFlag::kReading : ParseResultFlag::kNothingToRead;
     result.message_size = 0;
     return result;
 }

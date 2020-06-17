@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <C610.h>
 #include <FlexCAN_T4.h>
+#include <Streaming.h>
 
 template <CAN_DEV_TABLE _bus = CAN1>
 class C610Bus

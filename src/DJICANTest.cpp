@@ -4,6 +4,8 @@
 #include "DriveSystem.h"
 #include <NonBlockingSerialBuffer.h>
 #include <ArduinoJson.h>
+#include <Streaming.h>
+#include <CommandInterpreter.h>
 
 ////////////////////// CONFIG ///////////////////////
 const int PRINT_DELAY = 2 * 1000;
@@ -12,11 +14,9 @@ const float MAX_TORQUE = 6.0;
 ////////////////////// END CONFIG ///////////////////////
 
 DriveSystem drive;
+CommandInterpreter interpreter;
 
-// start char is <, stop char is '\n', use Serial as input stream, true for adding \0 string termination
-NonBlockingSerialBuffer<256> reader('<', '\n', Serial, true); 
-
-StaticJsonDocument<256> doc;
+DrivePrintOptions options;
 
 long last_command_ts;
 long last_print_ts;
@@ -31,6 +31,7 @@ void setup(void)
 
     ////////////// Runtime config /////////////////////
     drive.SetMaxCurrent(MAX_TORQUE);
+    options.print_delay_millis = PRINT_DELAY;
 
     // Put it in PID mode
     drive.SetUniformPositionGains(4.5, 0.0003);
@@ -40,34 +41,17 @@ void setup(void)
     }
     drive.ActivateActuator(6); // ID 1 on CAN2
     drive.ActivateActuator(8); // ID 3 on CAN2
-    // drive.SetIdle(); // alternative mode
+    // drive.SetIdle(); // alternatively, set the drive to idle
 }
 
 void loop()
 {
     drive.CheckForCANMessages();
-    ParseResult r = reader.Feed();
-    if (r.result == ParseResultFlag::kDone)
+    CommandResult r = interpreter.Feed();
+    if (r == CommandResult::kNewCommand)
     {
-        Serial.print("GOT: ");
-        Serial.println(reader.buffer_);
-
-        doc.clear();
-        auto err = deserializeJson(doc, reader.buffer_);
-        if (err)
-        {
-            Serial.println(err.c_str());
-        }
-        else
-        {
-            auto obj = doc.as<JsonObject>();
-            for (JsonPair p : obj)
-            {                
-                if (p.value().is<char*>()) {
-                    Serial.println(p.value().as<char*>());
-                }
-            }
-        }
+        Serial << "Got new command." << endl;
+        Serial << interpreter.LatestPositionCommand() << endl;
     }
 
     if (micros() - last_command_ts > CONTROL_DELAY)
@@ -76,10 +60,9 @@ void loop()
         last_command_ts = micros();
     }
 
-    if (micros() - last_print_ts > PRINT_DELAY)
+    if (micros() - last_print_ts > options.print_delay_millis)
     {
-        // DrivePrintOptions options;
-        // drive.PrintStatus(options);
+        drive.PrintStatus(options);
         last_print_ts = micros();
     }
 }

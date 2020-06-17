@@ -1,4 +1,5 @@
 #include "DriveSystem.h"
+#include <Streaming.h>
 
 // TODO: Make it work with const arrays
 template <class T, int N>
@@ -217,7 +218,7 @@ void DriveSystem::CommandCurrents(const float (&currents)[kNumActuators])
     // TODO: kind of redundant with constrain right above
     if (Maximum(current_command) > fault_current_ || Minimum(current_command) < -fault_current_)
     {
-        Serial.println("Requested current too large. Erroring out.");
+        Serial << "Requested current too large. Erroring out." << endl;
         control_mode_ = DriveControlMode::kError;
         return;
     }
@@ -245,7 +246,7 @@ C610 DriveSystem::GetController(uint8_t i)
     }
     else
     {
-        Serial.println("Invalid actuator index. Must be 0<=i<=11.");
+        Serial << "Invalid actuator index. Must be 0<=i<=11." << endl;
         // Should not be used
         // Maybe should error out here
         return C610();
@@ -272,8 +273,7 @@ void DriveSystem::PrintStatus(DrivePrintOptions options)
     char delimiter = '\t';
     if (options.time)
     {
-        Serial.print(millis());
-        Serial.print(delimiter);
+        Serial << millis() << delimiter;
     }
     for (uint8_t i = 0; i < kNumActuators; i++)
     {
@@ -282,33 +282,33 @@ void DriveSystem::PrintStatus(DrivePrintOptions options)
         if (options.positions)
         {
             Serial.print(GetActuatorPosition(i), 3);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
         if (options.velocities)
         {
             Serial.print(GetActuatorVelocity(i), 1);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
         if (options.currents)
         {
             Serial.print(GetActuatorCurrent(i), 3);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
         if (options.position_references)
         {
             Serial.print(position_reference_[i], 3);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
         if (options.velocity_references)
         {
             Serial.print(velocity_reference_[i], 1);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
         if (options.current_references)
         {
             Serial.print(current_reference_[i], 3);
-            Serial.print(delimiter);
+            Serial << delimiter;
         }
     }
-    Serial.println();
+    Serial << endl;
 }

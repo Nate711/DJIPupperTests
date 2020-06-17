@@ -16,6 +16,7 @@ enum class DriveControlMode
 // Makes it easier to pass options to the PrintStatus function
 struct DrivePrintOptions
 {
+    uint32_t print_delay_millis = 10;
     bool time = true;
     bool positions = true;
     bool velocities = true;

@@ -41,9 +41,10 @@ long last_command = 0;
 void setup()
 {
     DriveSystem d; // Initialization
-    d.SetPosition(0, 0.5); // Set the setpoint for motor 0 to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
-    d.SetUniformPositionGains(4.5, 0.0003); // Set the pid gains for all motors to kp=4.5 [A/rad] and kd=0.0003 [A/rad/s]
-    d.ActivateActautor(0); // Activate motor 0, all other motors will be idling (zero voltage)
+    d.SetPosition(6, 0.5); // Set the setpoint for motor 6 (ID 1 on CAN2) to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
+    d.SetAllPositionKp(4.5); // Set the kp pid gain for all motors to kp=4.5 [A/rad]
+    d.SetAllPositionKd(0.001); // Set the kp pid gain for all motors to kd=0.0003 [A/rad/s]
+    d.ActivateActautor(6); // Activate motor 6 (ID 1 on CAN2), all other motors will be idling (zero voltage)
     // Other control options include current control and idle.
 }
 void loop()
@@ -54,7 +55,18 @@ void loop()
     if (now - last_command >= 2) // Loop at 500Hz. Rate should be < 1kHz to avoid saturation.
     {
         d.Update(); // Computes and sends current commands based off the current operating mode (pid, idle, etc)
-        float shaft_angle = d.GetActuatorPosition(0); // Get the last measured angle (in radians) of motor 0's output shaft.
+        float shaft_angle = d.GetActuatorPosition(6); // Get the last measured angle (in radians) of motor 6's output shaft.
     }
 }
 ```
+
+### DJICANTest.cpp
+This main file runs pid control on up to 12 motors. It supports commands over serial in JSON (or msgpack if you change the interpreter constructor parameter) to set the position or pid gains. 
+
+Some example json messages you can send from the Arduino serial monitor:
+
+Setting the positions to arbitrary values: ```<{"pos":[1,2,3,4,5,6,7,8,9,10,11,12]}>```
+
+Setting the kp gain for all motors: ```<{"kp":2.0}>```
+
+Setting the kd gain for all motors: ```<{"kd":0.001}>```

@@ -1,18 +1,12 @@
 #pragma once
 #include "Arduino.h"
 
-enum class ParseResultFlag
+enum class BufferResult
 {
     kError,
     kNothingToRead,
     kReading,
     kDone
-};
-
-struct ParseResult
-{
-    ParseResultFlag result = ParseResultFlag::kError;
-    uint32_t message_size;
 };
 
 template <uint32_t kBufferSize = 128>
@@ -35,8 +29,16 @@ private:
 
 public:
     char buffer_[kBufferSize];
-    NonBlockingSerialBuffer(uint8_t start_byte, uint8_t end_byte, Stream &stream, bool string_termination = false);
-    ParseResult Feed();
+
+    // Construct the nonblockingserialbuffer object. Parameters include the start_byte (what to look for to start reading a message),
+    // a stop byte (what to look for to end reading), a reference to the input stream, and a boolean indicating whether to stick on a '\0' 
+    // to the buffer or not when done reading.
+    NonBlockingSerialBuffer(uint8_t start_byte, uint8_t stop_byte, Stream &stream, bool string_termination = false);
+
+    // Reads from the serial input buffer, adding anything new to the buffer, and returns a BufferResult - kError, kNothingToRead, kReading, kDone.
+    BufferResult Read();
+
+    // Removes all the bytes from the input stream.
     void FlushStream();
 };
 
@@ -44,9 +46,8 @@ template <uint32_t kBufferSize>
 NonBlockingSerialBuffer<kBufferSize>::NonBlockingSerialBuffer(uint8_t start_byte, uint8_t stop_byte, Stream &stream, bool string_termination) : start_byte_(start_byte), stop_byte_(stop_byte), stream_(&stream), string_termination_(string_termination) {}
 
 template <uint32_t kBufferSize>
-ParseResult NonBlockingSerialBuffer<kBufferSize>::Feed()
+BufferResult NonBlockingSerialBuffer<kBufferSize>::Read()
 {
-    ParseResult result;
     bool read_bytes = false;
     while (stream_->available())
     {
@@ -69,12 +70,11 @@ ParseResult NonBlockingSerialBuffer<kBufferSize>::Feed()
                 }
 
                 // TODO: add checksum to the buffer reader or leave all of that to outside code?
-                result.result = ParseResultFlag::kDone;
-                result.message_size = write_index_;
 
                 state_ = ParserState::kWaitingForStateCharacter;
                 write_index_ = 0;
-                return result;
+                return BufferResult::kDone;
+                ;
             }
             else
             {
@@ -83,9 +83,7 @@ ParseResult NonBlockingSerialBuffer<kBufferSize>::Feed()
             }
         }
     }
-    result.result = read_bytes ? ParseResultFlag::kReading : ParseResultFlag::kNothingToRead;
-    result.message_size = 0;
-    return result;
+    return read_bytes ? BufferResult::kReading : BufferResult::kNothingToRead;
 }
 
 template <uint32_t kBufferSize>

@@ -2,71 +2,82 @@
 #include "Arduino.h"
 #include <Streaming.h>
 #include <array>
+#include "PID.h"
+#include "RobotTypes.h"
 
-enum class CommandResult
+enum class CheckResultFlag
 {
     kNothing,
     kNewCommand,
     kError
 };
-
-typedef std::array<float, 12> ActuatorPositionVector;
-typedef std::array<float, 2> GainParameters;
-
-Print& operator<<(Print& stream, const ActuatorPositionVector& vec) {
-    for (auto e : vec) {
-        stream << e << " ";
-    }
-    stream << endl;
-    return stream;
-}
+struct CheckResult
+{
+    bool new_position = false;
+    bool new_kp = false;
+    bool new_kd = false;
+    CheckResultFlag flag = CheckResultFlag::kNothing;
+};
 
 class CommandInterpreter
 {
 private:
     ActuatorPositionVector position_command_;
-    GainParameters gain_command_;
+    PDGains gain_command_;
 
-    StaticJsonDocument<256> doc_;
-    NonBlockingSerialBuffer<256> reader_;
+    StaticJsonDocument<512> doc_;
+    NonBlockingSerialBuffer<512> reader_;
+
+    const bool use_msgpack_;
 
 public:
-    CommandInterpreter();
-    CommandResult Feed();
+    // Default to using < as the message start indicator, > as the message stop indicator, and Serial as the input stream
+    CommandInterpreter(bool use_msgpack = true, uint8_t start_byte = '<', uint8_t stop_byte = '>', Stream &stream = Serial);
+
+    // Checks the serial input buffer for bytes. Returns an enum indicating the result of the read: kNothing, kNewCommand, or kError. Should be called as fast as possible.
+    CheckResult CheckForMessages();
+
+    // Returns an ActuatorPositionVector with the latest position commands.
     ActuatorPositionVector LatestPositionCommand();
-    GainParameters LatestGainCommand();
+
+    // Return a PDGains object with the latest gain parameters.
+    // PDGains LatestGainCommand();
+
+    float LatestKp();
+    float LatestKd();
 };
 
-// Static buffer size: 256 bytes
 // Start character: '<'
 // Stop character: '\n'
 // Stream: Serial
 // Add '\0' to treat input as a string? : true
-CommandInterpreter::CommandInterpreter() : reader_('<', '\n', Serial, true) {}
+CommandInterpreter::CommandInterpreter(bool use_msgpack, uint8_t start_byte, uint8_t stop_byte, Stream &stream) : reader_(start_byte, stop_byte, stream, true), use_msgpack_(use_msgpack) {}
 
-CommandResult CommandInterpreter::Feed()
+CheckResult CommandInterpreter::CheckForMessages()
 {
-    CommandResult result = CommandResult::kNothing;
-    ParseResult r = reader_.Feed();
-    if (r.result == ParseResultFlag::kDone)
+    CheckResult result;
+    BufferResult buffer_result = reader_.Read();
+    if (buffer_result == BufferResult::kDone)
     {
         doc_.clear();
-        auto err = deserializeMsgPack(doc_, reader_.buffer_);
+        auto err = use_msgpack_ ? deserializeMsgPack(doc_, reader_.buffer_) : deserializeJson(doc_, reader_.buffer_);
         if (err)
         {
-            Serial << "deserializeMsgPack() failed: " << err.c_str() << endl;
-            return CommandResult::kError;
+            Serial << "deserialize failed: " << err.c_str() << endl;
+            result.flag = CheckResultFlag::kError;
+            return result;
         }
         else
         {
             auto obj = doc_.as<JsonObject>();
-            if (obj.containsKey("p"))
+            if (obj.containsKey("pos"))
             {
-                auto data = obj["p"].as<JsonArray>();
+                auto data = obj["pos"].as<JsonArray>();
                 if (data.size() != position_command_.size())
                 {
                     Serial << "Error: Invalid number of parameters in position command." << endl;
-                    return CommandResult::kError;
+                    result.flag = CheckResultFlag::kError;
+                    return result;
                 }
 
                 uint8_t i = 0;
@@ -74,23 +85,20 @@ CommandResult CommandInterpreter::Feed()
                 {
                     position_command_[i++] = v.as<float>();
                 }
-                result = CommandResult::kNewCommand;
+                result.new_position = true;
+                result.flag = CheckResultFlag::kNewCommand;
             }
-            if (obj.containsKey("g"))
+            if (obj.containsKey("kp"))
             {
-                JsonArray data = obj["g"].as<JsonArray>();
-                if (data.size() != gain_command_.size())
-                {
-                    Serial << "Error: Invalid number of parameters in gain command." << endl;
-                    return CommandResult::kError;
-                }
-
-                uint8_t i = 0;
-                for (auto v : data)
-                {
-                    gain_command_[i++] = v.as<float>();
-                }
-                result = CommandResult::kNewCommand;
+                gain_command_.kp = obj["kp"].as<float>();
+                result.new_kp = true;
+                result.flag = CheckResultFlag::kNewCommand;
+            }
+            if (obj.containsKey("kd"))
+            {
+                gain_command_.kd = obj["kd"].as<float>();
+                result.new_kd = true;
+                result.flag = CheckResultFlag::kNewCommand;
             }
         }
     }
@@ -102,7 +110,17 @@ ActuatorPositionVector CommandInterpreter::LatestPositionCommand()
     return position_command_;
 }
 
-GainParameters CommandInterpreter::LatestGainCommand()
+float CommandInterpreter::LatestKp()
 {
-    return gain_command_;
+    return gain_command_.kp;
 }
+float CommandInterpreter::LatestKd()
+{
+    return gain_command_.kd;
+}
+
+// Add back in the future if I decide to make it only possible to send both kp and kd over at once
+// PDGains CommandInterpreter::LatestGainCommand()
+// {
+//     return gain_command_;
+// }

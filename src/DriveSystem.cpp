@@ -66,7 +66,7 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     fault_current_ = 10.0; // TODO: don't make this so high at default
-    max_current_ = 0.0; // TODO: make this a parameter
+    max_current_ = 0.0;    // TODO: make this a parameter
     FillZeros(position_reference_);
     FillZeros(velocity_reference_);
     FillZeros(current_reference_);
@@ -84,24 +84,55 @@ void DriveSystem::SetIdle()
     control_mode_ = DriveControlMode::kIdle;
 }
 
+void DriveSystem::SetAllPositions(ActuatorPositionVector pos)
+{
+    if (pos.size() != kNumActuators)
+    {
+        Serial.println("Error. Position command vector does not have the same size as the drive system");
+        return;
+    }
+    for (uint8_t i = 0; i < kNumActuators; i++)
+    {
+        position_reference_[i] = pos[i];
+    }
+}
+
 void DriveSystem::SetPosition(uint8_t i, float position_reference)
 {
     control_mode_ = DriveControlMode::kPositionControl;
     position_reference_[i] = position_reference;
 }
 
-void DriveSystem::SetPositionGains(uint8_t i, float kp, float kd)
+void DriveSystem::SetPositionKp(uint8_t i, float kp)
 {
     position_gains_[i].kp = kp;
+}
+
+void DriveSystem::SetPositionKd(uint8_t i, float kd)
+{
     position_gains_[i].kd = kd;
 }
 
-void DriveSystem::SetUniformPositionGains(float kp, float kd)
+void DriveSystem::SetAllPositionKp(float kp)
 {
     for (uint8_t i = 0; i < kNumActuators; i++)
     {
-        SetPositionGains(i, kp, kd);
+        SetPositionKp(i, kp);
     }
+}
+
+void DriveSystem::SetAllPositionKd(float kd)
+{
+    for (uint8_t i = 0; i < kNumActuators; i++)
+    {
+        SetPositionKd(i, kd);
+    }
+}
+
+void DriveSystem::SetAllPositionGains(PDGains gains)
+{
+    SetAllPositionKp(gains.kp);
+    SetAllPositionKd(gains.kd);
 }
 
 void DriveSystem::SetCurrent(uint8_t i, float current_reference)

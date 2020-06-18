@@ -2,6 +2,7 @@
 
 #include "C610Bus.h"
 #include "PID.h"
+#include "RobotTypes.h"
 
 // Enum for the various control modes: idle, position control, current control
 enum class DriveControlMode
@@ -77,16 +78,22 @@ public:
     // Go into idle mode, which sends 0A to all motors.
     void SetIdle();
 
+    // Sets the positions for all twelve actuators.
+    void SetAllPositions(ActuatorPositionVector pos);
+
     // Set the position target for actuator i
     // Note that the current commanded to the motor controller is
     // only updated when Update() is called
     void SetPosition(uint8_t i, float target_position);
 
     // Set position gains for actuator i
-    void SetPositionGains(uint8_t i, float kp, float kd);
+    void SetPositionKp(uint8_t i, float kp);
+    void SetPositionKd(uint8_t i, float kd);
 
     // Set position gains for all actuators
-    void SetUniformPositionGains(float kp, float kd);
+    void SetAllPositionGains(PDGains gains);
+    void SetAllPositionKp(float kp);
+    void SetAllPositionKd(float kd);
 
     // Set current target for actuator i
     void SetCurrent(uint8_t i, float target_current);
@@ -97,12 +104,16 @@ public:
     // Set maximum PID and current control torque
     void SetMaxCurrent(float max_current);
 
+    // Activates an actuator. Deactive actuators will be commanded 0 amps.
     void ActivateActuator(uint8_t i);
 
+    // Deactivate an actuator.
     void DeactivateActuator(uint8_t);
 
+    // Activates all twelve actuators.
     void ActivateAll();
 
+    // Deactivates all twelve actuators.
     void DeactivateAll();
 
     // Send zero torques to the escs.
@@ -134,10 +145,10 @@ public:
     float GetActuatorCurrent(uint8_t i);
 
     // Get the C610Bus object for the front actuators.
-    C610Bus<CAN1>& FrontBus();
+    C610Bus<CAN1> &FrontBus();
 
     // Get the C610Bus object for the rear actuators.
-    C610Bus<CAN2>& RearBus();
+    C610Bus<CAN2> &RearBus();
 
     // Print drive information to screen
     void PrintStatus(DrivePrintOptions options);

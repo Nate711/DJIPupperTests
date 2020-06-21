@@ -52,6 +52,8 @@ void setup(void)
     // drive.SetIdle(); // alternatively, set the drive to idle
 
     drive.PrintHeader(options);
+
+    interpreter.Flush();
 }
 
 void loop()
@@ -64,7 +66,7 @@ void loop()
         if (r.new_position)
         {
             drive.SetAllPositions(interpreter.LatestPositionCommand());
-            Serial << interpreter.LatestPositionCommand() << endl;
+            Serial << "Position command: " << interpreter.LatestPositionCommand() << endl;
         }
         if (r.new_kp)
         {
@@ -76,6 +78,16 @@ void loop()
             drive.SetAllPositionKd(interpreter.LatestKd());
             Serial.print("Kd: ");
             Serial.println(interpreter.LatestKd(), 4);
+        }
+        if (r.new_max_current)
+        {
+            drive.SetMaxCurrent(interpreter.LatestMaxCurrent());
+            Serial << "Max Current: " << interpreter.LatestMaxCurrent() << endl;
+        }
+        if (r.new_activation)
+        {
+            drive.SetActivations(interpreter.LatestActivations());
+            Serial << "Activations: " << interpreter.LatestActivations() << endl;
         }
     }
 

@@ -16,6 +16,7 @@ with serial.Serial("/dev/tty.usbmodem71393001", timeout=0.2) as ser:
     ser.write(pos_command)
     ser.write(pack_dict({"kp":2.0}))
     ser.write(pack_dict({"kd":0.001}))
+    ser.write(pack_dict({"max_current":2.0}))
     ser.flush()
 
     while True:

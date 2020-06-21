@@ -1,76 +1,16 @@
 #include "DriveSystem.h"
 #include <Streaming.h>
-
-// TODO: Make it work with const arrays
-template <class T, int N>
-T Maximum(const T (&array)[N])
-{
-    T max = array[0];
-    for (int i = 0; i < N; i++)
-    {
-        max = array[i] >= max ? array[i] : max;
-    }
-    return max;
-}
-
-template <class T, int N>
-T Minimum(const T (&array)[N])
-{
-    T min = array[0];
-    for (int i = 0; i < N; i++)
-    {
-        min = array[i] <= min ? array[i] : min;
-    }
-    return min;
-}
-
-template <class T, int N>
-void Constrain(T (&array)[N], T min, T max)
-{
-    for (int i = 0; i < N; i++)
-    {
-        array[i] = (array[i] <= min) ? min : (array[i] >= max ? max : array[i]);
-    }
-}
-
-template <class T, int N>
-void MaskArray(T (&array)[N], const bool (&mask)[N])
-{
-    for (int i = 0; i < N; i++)
-    {
-        array[i] = mask[i] ? array[i] : T(0);
-    }
-}
-
-// TODO put this somewhere else
-template <int N>
-void ConvertToFixedPoint(int32_t (&out)[N], const float (&in)[N], float factor)
-{
-    for (int i = 0; i < N; i++)
-    {
-        out[i] = in[i] * factor;
-    }
-}
-
-// TODO Put in a array helper class?
-template <class T, int N>
-void FillZeros(T (&array)[N])
-{
-    for (int i = 0; i < N; i++)
-    {
-        array[i] = T(0);
-    }
-}
+#include "Utils.h"
 
 DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     fault_current_ = 10.0; // TODO: don't make this so high at default
     max_current_ = 0.0;    // TODO: make this a parameter
-    FillZeros(position_reference_);
-    FillZeros(velocity_reference_);
-    FillZeros(current_reference_);
-    FillZeros(active_mask_);
+    position_reference_.fill(0.0);
+    velocity_reference_.fill(0.0);
+    current_reference_.fill(0.0);
+    active_mask_.fill(false);
 }
 
 void DriveSystem::CheckForCANMessages()
@@ -86,15 +26,7 @@ void DriveSystem::SetIdle()
 
 void DriveSystem::SetAllPositions(ActuatorPositionVector pos)
 {
-    if (pos.size() != kNumActuators)
-    {
-        Serial.println("Error. Position command vector does not have the same size as the drive system");
-        return;
-    }
-    for (uint8_t i = 0; i < kNumActuators; i++)
-    {
-        position_reference_[i] = pos[i];
-    }
+    position_reference_ = pos;
 }
 
 void DriveSystem::SetPosition(uint8_t i, float position_reference)
@@ -169,8 +101,8 @@ void DriveSystem::Update()
     }
     case DriveControlMode::kPositionControl:
     {
-        float pd_current[kNumActuators];
-        for (uint8_t i = 0; i < kNumActuators; i++)
+        ActuatorCurrentVector pd_current;
+        for (size_t i = 0; i < kNumActuators; i++)
         {
             PD(pd_current[i], GetActuatorPosition(i), GetActuatorVelocity(i), position_reference_[i], velocity_reference_[i], position_gains_[i]);
         }
@@ -205,17 +137,22 @@ C610Bus<CAN2> &DriveSystem::RearBus()
 // TODO: make the activation simpler
 void DriveSystem::ActivateActuator(uint8_t i)
 {
-    active_mask_[i] = 1;
+    active_mask_[i] = true;
 }
 
 void DriveSystem::DeactivateActuator(uint8_t i)
 {
-    active_mask_[i] = 0;
+    active_mask_[i] = false;
+}
+
+void DriveSystem::SetActivations(ActuatorActivations acts)
+{
+    active_mask_ = acts; // Is this a copy?
 }
 
 void DriveSystem::ActivateAll()
 {
-    for (uint8_t i = 0; i < kNumActuators; i++)
+    for (size_t i = 0; i < kNumActuators; i++)
     {
         ActivateActuator(i);
     }
@@ -223,7 +160,7 @@ void DriveSystem::ActivateAll()
 
 void DriveSystem::DeactivateAll()
 {
-    for (uint8_t i = 0; i < kNumActuators; i++)
+    for (size_t i = 0; i < kNumActuators; i++)
     {
         DeactivateActuator(i);
     }
@@ -231,21 +168,14 @@ void DriveSystem::DeactivateAll()
 
 void DriveSystem::CommandIdle()
 {
-    float currents[kNumActuators];
-    FillZeros(currents);
+    ActuatorCurrentVector currents;
+    currents.fill(0.0);
     CommandCurrents(currents);
 }
 
-void DriveSystem::CommandCurrents(const float (&currents)[kNumActuators])
+void DriveSystem::CommandCurrents(ActuatorCurrentVector currents)
 {
-    // TODO: make this copy less stupid
-    float current_command[kNumActuators];
-    for (uint8_t i = 0; i < kNumActuators; i++)
-    {
-        current_command[i] = currents[i];
-    }
-
-    Constrain(current_command, -max_current_, max_current_);
+    ActuatorCurrentVector current_command = Constrain(current_command, -max_current_, max_current_);
     // TODO: kind of redundant with constrain right above
     if (Maximum(current_command) > fault_current_ || Minimum(current_command) < -fault_current_)
     {
@@ -254,9 +184,9 @@ void DriveSystem::CommandCurrents(const float (&currents)[kNumActuators])
         return;
     }
 
-    MaskArray(current_command, active_mask_);
-    int32_t currents_mA[kNumActuators];
-    ConvertToFixedPoint(currents_mA, current_command, kMilliAmpPerAmp);
+    current_command = MaskArray(current_command, active_mask_);
+    std::array<int32_t, kNumActuators> currents_mA;
+    currents_mA = ConvertToFixedPoint(current_command, kMilliAmpPerAmp);
 
     front_bus_.commandTorques(currents_mA[0], currents_mA[1], currents_mA[2], currents_mA[3], 0);
     front_bus_.commandTorques(currents_mA[4], currents_mA[5], 0, 0, 1);
@@ -306,7 +236,7 @@ void DriveSystem::PrintHeader(DrivePrintOptions options)
     {
         Serial << "T" << delimiter;
     }
-    for (uint8_t i = 0; i < kNumActuators; i++)
+    for (size_t i = 0; i < kNumActuators; i++)
     {
         if (!active_mask_[i])
             continue;

@@ -16,6 +16,8 @@ struct CheckResult
     bool new_position = false;
     bool new_kp = false;
     bool new_kd = false;
+    bool new_max_current = false;
+    bool new_activation = false;
     CheckResultFlag flag = CheckResultFlag::kNothing;
 };
 
@@ -23,7 +25,10 @@ class CommandInterpreter
 {
 private:
     ActuatorPositionVector position_command_;
+    ActuatorActivations activations_;
+
     PDGains gain_command_;
+    float max_current_;
 
     StaticJsonDocument<512> doc_;
     NonBlockingSerialBuffer<512> reader_;
@@ -40,11 +45,14 @@ public:
     // Returns an ActuatorPositionVector with the latest position commands.
     ActuatorPositionVector LatestPositionCommand();
 
-    // Return a PDGains object with the latest gain parameters.
-    // PDGains LatestGainCommand();
+    ActuatorActivations LatestActivations();
+
+    // Empty the input buffer
+    void Flush();
 
     float LatestKp();
     float LatestKd();
+    float LatestMaxCurrent();
 };
 
 // Start character: '<'
@@ -52,6 +60,22 @@ public:
 // Stream: Serial
 // Add '\0' to treat input as a string? : true
 CommandInterpreter::CommandInterpreter(bool use_msgpack, uint8_t start_byte, uint8_t stop_byte, Stream &stream) : reader_(start_byte, stop_byte, stream, true), use_msgpack_(use_msgpack) {}
+
+template <class T, unsigned int SIZE>
+CheckResultFlag CopyJsonArray(JsonArray json, std::array<T, SIZE>& arr)
+{
+    if (json.size() != arr.size())
+    {
+        Serial << "Error: Invalid number of parameters in position command." << endl;
+        return CheckResultFlag::kError;
+    }
+    uint8_t i = 0;
+    for(auto v : json)
+    {
+        arr[i++] = v.as<T>();
+    }
+    return CheckResultFlag::kNewCommand;
+}
 
 CheckResult CommandInterpreter::CheckForMessages()
 {
@@ -72,21 +96,13 @@ CheckResult CommandInterpreter::CheckForMessages()
             auto obj = doc_.as<JsonObject>();
             if (obj.containsKey("pos"))
             {
-                auto data = obj["pos"].as<JsonArray>();
-                if (data.size() != position_command_.size())
+                auto json_array = obj["pos"].as<JsonArray>();
+                result.flag = CopyJsonArray(json_array, position_command_);
+                if (result.flag == CheckResultFlag::kNewCommand)
                 {
-                    Serial << "Error: Invalid number of parameters in position command." << endl;
-                    result.flag = CheckResultFlag::kError;
-                    return result;
+                    result.new_position = true;
                 }
-
-                uint8_t i = 0;
-                for (auto v : data)
-                {
-                    position_command_[i++] = v.as<float>();
-                }
-                result.new_position = true;
-                result.flag = CheckResultFlag::kNewCommand;
+                return result;
             }
             if (obj.containsKey("kp"))
             {
@@ -100,6 +116,22 @@ CheckResult CommandInterpreter::CheckForMessages()
                 result.new_kd = true;
                 result.flag = CheckResultFlag::kNewCommand;
             }
+            if (obj.containsKey("max_current"))
+            {
+                max_current_ = obj["max_current"].as<float>();
+                result.new_max_current = true;
+                result.flag = CheckResultFlag::kNewCommand;
+            }
+            if (obj.containsKey("activations"))
+            {
+                auto json_array = obj["activations"].as<JsonArray>();
+                result.flag = CopyJsonArray(json_array, activations_);
+                if (result.flag == CheckResultFlag::kNewCommand)
+                {
+                    result.new_activation = true;
+                }
+                return result;
+            }
         }
     }
     return result;
@@ -110,6 +142,11 @@ ActuatorPositionVector CommandInterpreter::LatestPositionCommand()
     return position_command_;
 }
 
+ActuatorActivations CommandInterpreter::LatestActivations()
+{
+    return activations_;
+}
+
 float CommandInterpreter::LatestKp()
 {
     return gain_command_.kp;
@@ -117,4 +154,14 @@ float CommandInterpreter::LatestKp()
 float CommandInterpreter::LatestKd()
 {
     return gain_command_.kd;
+}
+
+float CommandInterpreter::LatestMaxCurrent()
+{
+    return max_current_;
+}
+
+void CommandInterpreter::Flush()
+{
+    reader_.FlushStream();
 }

@@ -299,6 +299,45 @@ float DriveSystem::GetActuatorCurrent(uint8_t i)
     return GetController(i).torque() / kMilliAmpPerAmp;
 }
 
+void DriveSystem::PrintHeader(DrivePrintOptions options)
+{
+    char delimiter = '\t';
+    if (options.time)
+    {
+        Serial << "T" << delimiter;
+    }
+    for (uint8_t i = 0; i < kNumActuators; i++)
+    {
+        if (!active_mask_[i])
+            continue;
+        if (options.positions)
+        {
+            Serial << "p[" << i << "]" << delimiter;
+        }
+        if (options.velocities)
+        {
+            Serial << "v[" << i << "]" << delimiter;
+        }
+        if (options.currents)
+        {
+            Serial << "I[" << i << "]" << delimiter;
+        }
+        if (options.position_references)
+        {
+            Serial << "pr[" << i << "]" << delimiter;
+        }
+        if (options.velocity_references)
+        {
+            Serial << "vr[" << i << "]" << delimiter;
+        }
+        if (options.current_references)
+        {
+            Serial << "Ir[" << i << "]" << delimiter;
+        }
+    }
+    Serial << endl;
+}
+
 void DriveSystem::PrintStatus(DrivePrintOptions options)
 {
     char delimiter = '\t';

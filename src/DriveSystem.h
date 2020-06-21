@@ -18,6 +18,7 @@ enum class DriveControlMode
 struct DrivePrintOptions
 {
     uint32_t print_delay_millis = 10;
+    uint32_t header_delay_millis = 10000;
     bool time = true;
     bool positions = true;
     bool velocities = true;
@@ -152,4 +153,7 @@ public:
 
     // Print drive information to screen
     void PrintStatus(DrivePrintOptions options);
+
+    // Print a header for the messages
+    void PrintHeader(DrivePrintOptions options);
 };

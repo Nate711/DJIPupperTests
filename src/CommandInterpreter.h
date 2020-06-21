@@ -118,9 +118,3 @@ float CommandInterpreter::LatestKd()
 {
     return gain_command_.kd;
 }
-
-// Add back in the future if I decide to make it only possible to send both kp and kd over at once
-// PDGains CommandInterpreter::LatestGainCommand()
-// {
-//     return gain_command_;
-// }

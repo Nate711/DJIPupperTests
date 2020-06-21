@@ -8,8 +8,9 @@
 #include <CommandInterpreter.h>
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 20 * 1000;
-const int CONTROL_DELAY = 1000;
+const int PRINT_DELAY = 20; // millis
+const int HEADER_DELAY = 5000; // millis
+const int CONTROL_DELAY = 1000; // micros
 const float MAX_TORQUE = 6.0;
 PDGains DEFAULT_GAINS = {6, 0.002};
 ////////////////////// END CONFIG ///////////////////////
@@ -17,12 +18,13 @@ PDGains DEFAULT_GAINS = {6, 0.002};
 DriveSystem drive;
 
 // Example json message with default start and stop characters: <{"kp":2.0}>
-CommandInterpreter interpreter(false); // use_msgpack: false, use default arguments for the rest
+CommandInterpreter interpreter(true); // use_msgpack: true, use default arguments for the rest
 
 DrivePrintOptions options;
 
 long last_command_ts;
 long last_print_ts;
+long last_header_ts;
 
 void setup(void)
 {
@@ -30,11 +32,13 @@ void setup(void)
     delay(400);
 
     last_command_ts = micros();
-    last_print_ts = micros();
+    last_print_ts = millis();
+    last_header_ts = millis();
 
     ////////////// Runtime config /////////////////////
     drive.SetMaxCurrent(MAX_TORQUE);
     options.print_delay_millis = PRINT_DELAY;
+    options.header_delay_millis = HEADER_DELAY;
 
     // Put it in PID mode
     drive.SetAllPositionGains(DEFAULT_GAINS);
@@ -46,6 +50,8 @@ void setup(void)
     drive.ActivateActuator(7); // ID 2 on CAN2
     drive.ActivateActuator(8); // ID 3 on CAN2
     // drive.SetIdle(); // alternatively, set the drive to idle
+
+    drive.PrintHeader(options);
 }
 
 void loop()
@@ -68,7 +74,8 @@ void loop()
         if (r.new_kd)
         {
             drive.SetAllPositionKd(interpreter.LatestKd());
-            Serial << "Kd: " << interpreter.LatestKd() << endl;
+            Serial.print("Kd: ");
+            Serial.println(interpreter.LatestKd(), 4);
         }
     }
 
@@ -79,9 +86,15 @@ void loop()
         last_command_ts = micros();
     }
 
-    if (micros() - last_print_ts >= options.print_delay_millis)
+    if (millis() - last_print_ts >= options.print_delay_millis)
     {
         drive.PrintStatus(options);
-        last_print_ts = micros();
+        last_print_ts = millis();
+    }
+
+    if (millis() - last_header_ts >= options.header_delay_millis)
+    {
+        drive.PrintHeader(options);
+        last_header_ts = millis();
     }
 }

@@ -1,0 +1,3 @@
+[submodule "lib/Streaming"]
+	path = lib/Streaming
+	url = https://github.com/janelia-arduino/Streaming.git

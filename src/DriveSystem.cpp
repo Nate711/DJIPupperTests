@@ -175,7 +175,7 @@ void DriveSystem::CommandIdle()
 
 void DriveSystem::CommandCurrents(ActuatorCurrentVector currents)
 {
-    ActuatorCurrentVector current_command = Constrain(current_command, -max_current_, max_current_);
+    ActuatorCurrentVector current_command = Constrain(currents, -max_current_, max_current_);
     // TODO: kind of redundant with constrain right above
     if (Maximum(current_command) > fault_current_ || Minimum(current_command) < -fault_current_)
     {

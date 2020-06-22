@@ -23,7 +23,7 @@ T Minimum(const std::array<T, N> &array)
 }
 
 template <typename T, size_t N>
-std::array<T, N> Constrain(std::array<T, N> &array, T min, T max)
+std::array<T, N> Constrain(std::array<T, N> array, T min, T max)
 {
     std::array<T, N> out;
     for (size_t i = 0; i < array.size(); i++)

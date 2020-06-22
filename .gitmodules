@@ -1,3 +1,6 @@
 [submodule "lib/Streaming"]
 	path = lib/Streaming
 	url = https://github.com/janelia-arduino/Streaming.git
+[submodule "lib/FlexCAN_T4"]
+	path = lib/FlexCAN_T4
+	url = https://github.com/tonton81/FlexCAN_T4.git

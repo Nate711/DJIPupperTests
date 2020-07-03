@@ -8,11 +8,11 @@
 #include <CommandInterpreter.h>
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 20; // millis
+const int PRINT_DELAY = 50; // millis
 const int HEADER_DELAY = 5000; // millis
 const int CONTROL_DELAY = 1000; // micros
-const float MAX_TORQUE = 6.0;
-PDGains DEFAULT_GAINS = {6, 0.002};
+const float MAX_TORQUE = 2.0;
+PDGains DEFAULT_GAINS = {8, 0.004};
 ////////////////////// END CONFIG ///////////////////////
 
 DriveSystem drive;
@@ -40,17 +40,10 @@ void setup(void)
     options.print_delay_millis = PRINT_DELAY;
     options.header_delay_millis = HEADER_DELAY;
 
-    // Put it in PID mode
+    // Set behavioral options
     drive.SetAllPositionGains(DEFAULT_GAINS);
-    for (uint8_t i = 0; i < DriveSystem::kNumActuators; i++)
-    {
-        drive.SetPosition(i, 0.0);
-    }
-    drive.ActivateActuator(6); // ID 1 on CAN2
-    drive.ActivateActuator(7); // ID 2 on CAN2
-    drive.ActivateActuator(8); // ID 3 on CAN2
-    // drive.SetIdle(); // alternatively, set the drive to idle
-
+    // No motors are activated on startup, and the drive system will start up in idle mode
+    
     drive.PrintHeader(options);
 
     interpreter.Flush();
@@ -62,7 +55,7 @@ void loop()
     CheckResult r = interpreter.CheckForMessages();
     if (r.flag == CheckResultFlag::kNewCommand)
     {
-        Serial << "Got new command." << endl;
+        // Serial << "Got new command." << endl;
         if (r.new_position)
         {
             drive.SetAllPositions(interpreter.LatestPositionCommand());
@@ -88,6 +81,11 @@ void loop()
         {
             drive.SetActivations(interpreter.LatestActivations());
             Serial << "Activations: " << interpreter.LatestActivations() << endl;
+        }
+        if (r.do_zero)
+        {
+            drive.ZeroCurrentPosition();
+            Serial << "Setting current position as the zero point" << endl;
         }
     }
 

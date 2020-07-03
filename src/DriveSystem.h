@@ -40,6 +40,8 @@ private:
 
     DriveControlMode control_mode_;
 
+    ActuatorPositionVector zero_position_;
+
     ActuatorPositionVector position_reference_;
     ActuatorVelocityVector velocity_reference_;
     ActuatorCurrentVector current_reference_;
@@ -53,6 +55,12 @@ private:
     float max_current_;
     // Maximum commandable current before system triggers a fault. Different than SW saturation current.
     float fault_current_;
+
+    // Max position before system errors out.
+    float fault_position_;
+
+    // Max velocity before system errors out.
+    float fault_velocity_;
 
     // Constants specific to the C610 + M2006 setup.
     static constexpr float kReduction = 36.0F;
@@ -74,8 +82,17 @@ public:
     // Check for messages on the CAN bus and run callbacks.
     void CheckForCANMessages();
 
+    // Check for errors
+    DriveControlMode CheckErrors();
+
     // Go into idle mode, which sends 0A to all motors.
     void SetIdle();
+
+    // Set the measured position to the zero point for the actuators.
+    void ZeroCurrentPosition();
+
+    // Set the zero point for all actuators from the provided vector.
+    void SetZeroPositions(ActuatorPositionVector zero);
 
     // Sets the positions for all twelve actuators.
     void SetAllPositions(ActuatorPositionVector pos);
@@ -138,6 +155,15 @@ public:
 
     // Returns the output shaft's position in [radians].
     float GetActuatorPosition(uint8_t i);
+
+    // Returns all output shaft positions [radians]
+    ActuatorPositionVector GetActuatorPositions();
+
+    // Returns the output shaft's position in [radians].
+    float GetRawActuatorPosition(uint8_t i);
+
+    // Returns all output shaft positions [radians]
+    ActuatorPositionVector GetRawActuatorPositions();
 
     // Returns the output shaft's velocity in [radians/s].
     float GetActuatorVelocity(uint8_t i);

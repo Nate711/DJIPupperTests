@@ -18,6 +18,7 @@ struct CheckResult
     bool new_kd = false;
     bool new_max_current = false;
     bool new_activation = false;
+    bool do_zero = false;
     CheckResultFlag flag = CheckResultFlag::kNothing;
 };
 
@@ -62,7 +63,7 @@ public:
 CommandInterpreter::CommandInterpreter(bool use_msgpack, uint8_t start_byte, uint8_t stop_byte, Stream &stream) : reader_(start_byte, stop_byte, stream, true), use_msgpack_(use_msgpack) {}
 
 template <class T, unsigned int SIZE>
-CheckResultFlag CopyJsonArray(JsonArray json, std::array<T, SIZE>& arr)
+CheckResultFlag CopyJsonArray(JsonArray json, std::array<T, SIZE> &arr)
 {
     if (json.size() != arr.size())
     {
@@ -70,7 +71,7 @@ CheckResultFlag CopyJsonArray(JsonArray json, std::array<T, SIZE>& arr)
         return CheckResultFlag::kError;
     }
     uint8_t i = 0;
-    for(auto v : json)
+    for (auto v : json)
     {
         arr[i++] = v.as<T>();
     }
@@ -131,6 +132,14 @@ CheckResult CommandInterpreter::CheckForMessages()
                     result.new_activation = true;
                 }
                 return result;
+            }
+            if (obj.containsKey("zero"))
+            {
+                if (obj["zero"].as<bool>())
+                {
+                    result.flag = CheckResultFlag::kNewCommand;
+                    result.do_zero = true;
+                }
             }
         }
     }

@@ -6,11 +6,14 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_()
 {
     control_mode_ = DriveControlMode::kIdle;
     fault_current_ = 10.0; // TODO: don't make this so high at default
+    fault_position_ = 3.5; // TODO: make this a param
+    fault_velocity_ = 100000.0; // TODO: make this a param, set to something more reasonable.
     max_current_ = 0.0;    // TODO: make this a parameter
     position_reference_.fill(0.0);
     velocity_reference_.fill(0.0);
-    current_reference_.fill(0.0);
+    current_reference_.fill(0.0); // todo, log the commanded current even when in position PID mode
     active_mask_.fill(false);
+    zero_position_.fill(0.0);
 }
 
 void DriveSystem::CheckForCANMessages()
@@ -19,13 +22,40 @@ void DriveSystem::CheckForCANMessages()
     rear_bus_.pollCAN();
 }
 
+DriveControlMode DriveSystem::CheckErrors()
+{
+    for (size_t i = 0; i<kNumActuators; i++)
+    {
+        // check positions
+        if (abs(GetActuatorPosition(i)) > fault_position_) {
+            return DriveControlMode::kError;
+        }
+        // check velocities
+        if (abs(GetActuatorVelocity(i)) > fault_velocity_) {
+            return DriveControlMode::kError;
+        }
+    }
+    return DriveControlMode::kIdle;
+}
+
 void DriveSystem::SetIdle()
 {
     control_mode_ = DriveControlMode::kIdle;
 }
 
+void DriveSystem::ZeroCurrentPosition()
+{
+    SetZeroPositions(GetRawActuatorPositions());
+}
+
+void DriveSystem::SetZeroPositions(ActuatorPositionVector zero)
+{
+    zero_position_ = zero;
+}
+
 void DriveSystem::SetAllPositions(ActuatorPositionVector pos)
 {
+    control_mode_ = DriveControlMode::kPositionControl;
     position_reference_ = pos;
 }
 
@@ -86,11 +116,18 @@ void DriveSystem::SetMaxCurrent(float max_current)
 // TODO: Add saturation to PID!
 void DriveSystem::Update()
 {
+    // If there are errors, put the system in the error state.
+    if (CheckErrors() == DriveControlMode::kError)
+    {
+        control_mode_ = DriveControlMode::kError;
+    }
+
     switch (control_mode_)
     {
     case DriveControlMode::kError:
     {
         // TODO: Add some sort of error handling.
+        Serial << "ERROR" << endl;
         CommandIdle();
         break;
     }
@@ -214,9 +251,34 @@ C610 DriveSystem::GetController(uint8_t i)
     }
 }
 
+float DriveSystem::GetRawActuatorPosition(uint8_t i)
+{
+    return (GetController(i).counts() / kCountsPerRad);
+}
+
+ActuatorPositionVector DriveSystem::GetRawActuatorPositions()
+{
+    ActuatorPositionVector pos;
+    for(size_t i = 0; i<pos.size(); i++)
+    {
+        pos[i] = GetRawActuatorPosition(i);
+    }
+    return pos;
+}
+
 float DriveSystem::GetActuatorPosition(uint8_t i)
 {
-    return GetController(i).counts() / kCountsPerRad;
+    return GetRawActuatorPosition(i) - zero_position_[i];
+}
+
+ActuatorPositionVector DriveSystem::GetActuatorPositions()
+{
+    ActuatorPositionVector pos;
+    for(size_t i = 0; i<pos.size(); i++)
+    {
+        pos[i] = GetActuatorPosition(i);
+    }
+    return pos;
 }
 
 float DriveSystem::GetActuatorVelocity(uint8_t i)

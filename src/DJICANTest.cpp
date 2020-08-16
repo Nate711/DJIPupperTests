@@ -47,6 +47,9 @@ void setup(void)
     drive.PrintHeader(options);
 
     interpreter.Flush();
+
+    pinMode(13, OUTPUT);
+    digitalWrite(13, HIGH);
 }
 
 void loop()
@@ -87,6 +90,11 @@ void loop()
             drive.ZeroCurrentPosition();
             Serial << "Setting current position as the zero point" << endl;
         }
+        if (r.do_idle)
+        {
+            drive.SetIdle();
+            Serial << "Setting drive to idle." << endl;
+        }
     }
 
     if (micros() - last_command_ts >= CONTROL_DELAY)
@@ -96,15 +104,15 @@ void loop()
         last_command_ts = micros();
     }
 
-    if (millis() - last_print_ts >= options.print_delay_millis)
-    {
-        drive.PrintStatus(options);
-        last_print_ts = millis();
-    }
+    // if (millis() - last_print_ts >= options.print_delay_millis)
+    // {
+    //     drive.PrintStatus(options);
+    //     last_print_ts = millis();
+    // }
 
-    if (millis() - last_header_ts >= options.header_delay_millis)
-    {
-        drive.PrintHeader(options);
-        last_header_ts = millis();
-    }
+    // if (millis() - last_header_ts >= options.header_delay_millis)
+    // {
+    //     drive.PrintHeader(options);
+    //     last_header_ts = millis();
+    // }
 }

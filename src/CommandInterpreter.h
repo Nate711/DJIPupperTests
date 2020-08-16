@@ -19,6 +19,7 @@ struct CheckResult
     bool new_max_current = false;
     bool new_activation = false;
     bool do_zero = false;
+    bool do_idle = false;
     CheckResultFlag flag = CheckResultFlag::kNothing;
 };
 
@@ -139,6 +140,14 @@ CheckResult CommandInterpreter::CheckForMessages()
                 {
                     result.flag = CheckResultFlag::kNewCommand;
                     result.do_zero = true;
+                }
+            }
+            if (obj.containsKey("idle"))
+            {
+                if (obj["idle"].as<bool>())
+                {
+                    result.flag = CheckResultFlag::kNewCommand;
+                    result.do_idle = true;
                 }
             }
         }

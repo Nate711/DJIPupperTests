@@ -1,185 +1,214 @@
 #pragma once
 
+#include <BasicLinearAlgebra.h>
+
 #include "C610Bus.h"
+#include "Kinematics.h"
 #include "PID.h"
 #include "RobotTypes.h"
 
 // Enum for the various control modes: idle, position control, current control
-enum class DriveControlMode
-{
-    kIdle,
-    kError, // For robot errors, not coding mistakes.
-    kPositionControl,
-    kComplianceControl,
-    kCurrentControl,
+enum class DriveControlMode {
+  kIdle,
+  kError,  // For robot errors, not coding mistakes.
+  kPositionControl,
+  kCartesianPositionControl,
+  kCurrentControl,
 };
 
 // Makes it easier to pass options to the PrintStatus function
-struct DrivePrintOptions
-{
-    uint32_t print_delay_millis = 10;
-    uint32_t header_delay_millis = 10000;
-    bool time = true;
-    bool positions = true;
-    bool velocities = true;
-    bool currents = true;
-    bool position_references = true;
-    bool velocity_references = true;
-    bool current_references = true;
+struct DrivePrintOptions {
+  uint32_t print_delay_millis = 10;
+  uint32_t header_delay_millis = 10000;
+  bool time = true;
+  bool positions = true;
+  bool velocities = true;
+  bool currents = true;
+  bool position_references = true;
+  bool velocity_references = true;
+  bool current_references = true;
 };
 
 // Class for controlling the 12 (no more and no less) actuators on Pupper
-class DriveSystem
-{
-public:
-    static const size_t kNumActuators = 12; // TODO something else with this
+class DriveSystem {
+ public:
+  static const size_t kNumActuators = 12;  // TODO something else with this
 
-private:
-    C610Bus<CAN1> front_bus_;
-    C610Bus<CAN2> rear_bus_;
+ private:
+  C610Bus<CAN1> front_bus_;
+  C610Bus<CAN2> rear_bus_;
 
-    DriveControlMode control_mode_;
+  DriveControlMode control_mode_;
 
-    ActuatorPositionVector zero_position_;
+  ActuatorPositionVector zero_position_;
 
-    ActuatorPositionVector position_reference_;
-    ActuatorVelocityVector velocity_reference_;
-    ActuatorCurrentVector current_reference_;
+  ActuatorPositionVector position_reference_;
+  ActuatorVelocityVector velocity_reference_;
+  ActuatorCurrentVector current_reference_;
 
-    std::array<PDGains, kNumActuators> position_gains_;
+  BLA::Matrix<12> cartesian_position_reference_;
+  BLA::Matrix<12> cartesian_velocity_reference_;
 
-    // Indicates which motors are "active". Those which are inactive get 0 torque.
-    ActuatorActivations active_mask_;
+  std::array<PDGains, kNumActuators> position_gains_;
 
-    // Maximum current for current control and PD mode.
-    float max_current_;
-    // Maximum commandable current before system triggers a fault. Different than SW saturation current.
-    float fault_current_;
+  // Indicates which motors are "active". Those which are inactive get 0
+  // torque.
+  ActuatorActivations active_mask_;
 
-    // Max position before system errors out.
-    float fault_position_;
+  // Maximum current for current control and PD mode.
+  float max_current_;
+  // Maximum commandable current before system triggers a fault. Different
+  // than SW saturation current.
+  float fault_current_;
 
-    // Max velocity before system errors out.
-    float fault_velocity_;
+  // Max position before system errors out.
+  float fault_position_;
 
-    // Constants specific to the C610 + M2006 setup.
-    static constexpr float kReduction = 36.0F;
-    static constexpr float kCountsPerRad = C610::COUNTS_PER_REV * kReduction / (2 * M_PI);
-    static constexpr float kRPMPerRadS = kReduction * 2.0F * M_PI / 60.0F;
-    static constexpr float kMilliAmpPerAmp = 1000.0F;
+  // Max velocity before system errors out.
+  float fault_velocity_;
 
-    // Initialize the two CAN buses
-    void InitializeDrive();
+  // Constants specific to the C610 + M2006 setup.
+  static constexpr float kReduction = 36.0F;
+  static constexpr float kCountsPerRad =
+      C610::COUNTS_PER_REV * kReduction / (2 * M_PI);
+  static constexpr float kRPMPerRadS = kReduction * 2.0F * M_PI / 60.0F;
+  static constexpr float kMilliAmpPerAmp = 1000.0F;
 
-public:
-    // Construct drive system and initialize CAN buses.
-    // Set position and current-control references to zero.
-    DriveSystem();
+  // Constants defining the robot geometry.
+  LegParameters leg_parameters_;
 
-    // Run one iteration through the control loop. Action depends on the current mode.
-    void Update();
+  // Initialize the two CAN buses
+  void InitializeDrive();
 
-    // Check for messages on the CAN bus and run callbacks.
-    void CheckForCANMessages();
+  RobotSide GetLegSide(uint8_t leg_index);
 
-    // Check for errors
-    DriveControlMode CheckErrors();
+ public:
+  // Construct drive system and initialize CAN buses.
+  // Set position and current-control references to zero.
+  DriveSystem();
 
-    // Go into idle mode, which sends 0A to all motors.
-    void SetIdle();
+  // Run one iteration through the control loop. Action depends on the current
+  // mode.
+  void Update();
 
-    // Set the measured position to the zero point for the actuators.
-    void ZeroCurrentPosition();
+  // Check for messages on the CAN bus and run callbacks.
+  void CheckForCANMessages();
 
-    // Set the zero point for all actuators from the provided vector.
-    void SetZeroPositions(ActuatorPositionVector zero);
+  // Check for errors
+  DriveControlMode CheckErrors();
 
-    // Sets the positions for all twelve actuators.
-    void SetAllPositions(ActuatorPositionVector pos);
+  // Go into idle mode, which sends 0A to all motors.
+  void SetIdle();
 
-    // Set the position target for actuator i
-    // Note that the current commanded to the motor controller is
-    // only updated when Update() is called
-    void SetPosition(uint8_t i, float target_position);
+  // Set the measured position to the zero point for the actuators.
+  void ZeroCurrentPosition();
 
-    // Set position gains for actuator i
-    void SetPositionKp(uint8_t i, float kp);
-    void SetPositionKd(uint8_t i, float kd);
+  // Set the zero point for all actuators from the provided vector.
+  void SetZeroPositions(ActuatorPositionVector zero);
 
-    // Set position gains for all actuators
-    void SetAllPositionGains(PDGains gains);
-    void SetAllPositionKp(float kp);
-    void SetAllPositionKd(float kd);
+  // Sets the positions for all twelve actuators.
+  void SetAllPositions(ActuatorPositionVector pos);
 
-    // Set current target for actuator i
-    void SetCurrent(uint8_t i, float target_current);
+  // Set the position target for actuator i
+  // Note that the current commanded to the motor controller is
+  // only updated when Update() is called
+  void SetPosition(uint8_t i, float target_position);
 
-    // Set current level that would trigger a fault
-    void SetFaultCurrent(float fault_current);
+  // Set position gains for actuator i
+  void SetPositionKp(uint8_t i, float kp);
+  void SetPositionKd(uint8_t i, float kd);
 
-    // Set maximum PID and current control torque
-    void SetMaxCurrent(float max_current);
+  // Set position gains for all actuators
+  void SetAllPositionGains(PDGains gains);
+  void SetAllPositionKp(float kp);
+  void SetAllPositionKd(float kd);
 
-    // Activates an actuator. Deactive actuators will be commanded 0 amps.
-    void ActivateActuator(uint8_t i);
+  // Set current target for actuator i
+  void SetCurrent(uint8_t i, float target_current);
 
-    // Deactivate an actuator.
-    void DeactivateActuator(uint8_t i);
+  // Set current level that would trigger a fault
+  void SetFaultCurrent(float fault_current);
 
-    void SetActivations(ActuatorActivations acts);
+  // Set maximum PID and current control torque
+  void SetMaxCurrent(float max_current);
 
-    // Activates all twelve actuators.
-    void ActivateAll();
+  // Activates an actuator. Deactive actuators will be commanded 0 amps.
+  void ActivateActuator(uint8_t i);
 
-    // Deactivates all twelve actuators.
-    void DeactivateAll();
+  // Deactivate an actuator.
+  void DeactivateActuator(uint8_t i);
 
-    // Send zero torques to the escs.
-    void CommandIdle();
+  void SetActivations(ActuatorActivations acts);
 
-    /*
-    The ordering of the torques array goes like this:
-    front-right abduction
-    front-right hip
-    front-right knee
-    front-left ...
-    back-right ...
-    back-left ...
-    */
+  // Activates all twelve actuators.
+  void ActivateAll();
 
-    // Send torque commands to C610 escs. Converts from decimal value of amps to integer milliamps.
-    void CommandCurrents(ActuatorCurrentVector currents); // passing "torques" by reference enforces that it have 12 elements
+  // Deactivates all twelve actuators.
+  void DeactivateAll();
 
-    // Get the C610 controller object corresponding to index i.
-    C610 GetController(uint8_t i);
+  // Send zero torques to the escs.
+  void CommandIdle();
 
-    // Returns the output shaft's position in [radians].
-    float GetActuatorPosition(uint8_t i);
+  /*
+  The ordering of the torques array goes like this:
+  front-right abduction
+  front-right hip
+  front-right knee
+  front-left ...
+  back-right ...
+  back-left ...
+  */
 
-    // Returns all output shaft positions [radians]
-    ActuatorPositionVector GetActuatorPositions();
+  // Send torque commands to C610 escs. Converts from decimal value of amps to
+  // integer milliamps.
+  void CommandCurrents(
+      ActuatorCurrentVector currents);  // passing "torques" by reference
+                                        // enforces that it have 12 elements
 
-    // Returns the output shaft's position in [radians].
-    float GetRawActuatorPosition(uint8_t i);
+  // Get the C610 controller object corresponding to index i.
+  C610 GetController(uint8_t i);
 
-    // Returns all output shaft positions [radians]
-    ActuatorPositionVector GetRawActuatorPositions();
+  // Returns the output shaft's position in [radians].
+  float GetActuatorPosition(uint8_t i);
 
-    // Returns the output shaft's velocity in [radians/s].
-    float GetActuatorVelocity(uint8_t i);
+  // Returns all output shaft positions [radians]
+  ActuatorPositionVector GetActuatorPositions();
 
-    // Returns the motor's actual current in [A]
-    float GetActuatorCurrent(uint8_t i);
+  // Returns the output shaft's position in [radians].
+  float GetRawActuatorPosition(uint8_t i);
 
-    // Get the C610Bus object for the front actuators.
-    C610Bus<CAN1> &FrontBus();
+  // Returns all output shaft positions [radians]
+  ActuatorPositionVector GetRawActuatorPositions();
 
-    // Get the C610Bus object for the rear actuators.
-    C610Bus<CAN2> &RearBus();
+  // Returns the output shaft's velocity in [radians/s].
+  float GetActuatorVelocity(uint8_t i);
 
-    // Print drive information to screen
-    void PrintStatus(DrivePrintOptions options);
+  // Returns the motor's actual current in [A]
+  float GetActuatorCurrent(uint8_t i);
 
-    // Print a header for the messages
-    void PrintHeader(DrivePrintOptions options);
+  // Returns vector of joint angles for the given leg i.
+  // Order is {abductor, hip, knee}
+  BLA::Matrix<3> GetLegJointAngles(uint8_t i);
+
+  // Returns vector of joint angles for the given leg i.
+  // Order is {abductor, hip, knee}
+  BLA::Matrix<3> GetLegJointVelocities(uint8_t i);
+
+  // Get the cartesian reference position for leg i.
+  BLA::Matrix<3> GetLegCartesianPositionReference(uint8_t i);
+
+  // Return the cartesian reference velocity for leg i.
+  BLA::Matrix<3> GetLegCartesianVelocityReference(uint8_t i);
+
+  // Get the C610Bus object for the front actuators.
+  C610Bus<CAN1> &FrontBus();
+
+  // Get the C610Bus object for the rear actuators.
+  C610Bus<CAN2> &RearBus();
+
+  // Print drive information to screen
+  void PrintStatus(DrivePrintOptions options);
+
+  // Print a header for the messages
+  void PrintHeader(DrivePrintOptions options);
 };

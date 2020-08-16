@@ -3,13 +3,16 @@ import serial
 import numpy as np
 
 
-def pack_serialized(bytes_array, start=b"<", stop=b">"):
-    return start + bytes_array + stop
+def pack_serialized(bytes_array, start=0x00):
+    return bytes([start, len(bytes_array)]) + bytes_array
 
 
-def pack_dict(dict, start=b"<", stop=b">"):
-    raw = msgpack.packb(dict, use_bin_type=True)
-    return pack_serialized(raw, start, stop)
+def pack_dict(dict, start=0x00):
+    raw = msgpack.packb(dict, use_single_float=True)#use_bin_type=True)
+    # print(raw)
+    full_array = pack_serialized(raw, start)
+    print(full_array)
+    return full_array
 
 with serial.Serial("/dev/tty.usbmodem71393001", timeout=0.2) as ser:
     try:
@@ -17,15 +20,13 @@ with serial.Serial("/dev/tty.usbmodem71393001", timeout=0.2) as ser:
         ser.write(pack_dict({"kp": 12.0}))
         ser.write(pack_dict({"kd": 0.005}))
         ser.write(pack_dict({"max_current": 0.5}))
-        # ser.write(pack_dict({"activations": [0,0,0,0,0,0,1,1,1,1,1,1]}))
         ser.write(pack_dict({"activations": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}))
-        # ser.write(pack_dict({"activations": [0,0,0,0,0,0,0,0,0,0,0,0]}))
+        # # ser.write(pack_dict({"activations": [0,0,0,0,0,0,0,0,0,0,0,0]}))
         ser.write(
             pack_dict({"pos": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]})
         )
 
         ser.flush()
-        count = 0
         while True:
             print(ser.readline().decode(), end="")
     except:

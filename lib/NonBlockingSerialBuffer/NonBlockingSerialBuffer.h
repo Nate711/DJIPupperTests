@@ -9,33 +9,34 @@ enum class BufferResult
     kDone
 };
 
-template <uint32_t kBufferSize = 128>
+template <uint32_t kBufferSize = 256>
 class NonBlockingSerialBuffer
 {
 private:
     enum class ParserState
     {
-        kReading,
-        kWaitingForStateCharacter,
+        kWaitingForStartCharacter,
+        kReadingMessageLength,
+        kReadingPayload,
     };
-    uint8_t start_byte_;
-    uint8_t stop_byte_;
+    const uint8_t start_byte_;
+    uint8_t message_length_;
     uint32_t write_index_ = 0;
 
     Stream *stream_;
-    bool string_termination_;
+    const bool string_termination_;
 
-    ParserState state_ = ParserState::kWaitingForStateCharacter;
+    ParserState state_ = ParserState::kWaitingForStartCharacter;
 
 public:
     char buffer_[kBufferSize];
 
     // Construct the nonblockingserialbuffer object. Parameters include the start_byte (what to look for to start reading a message),
-    // a stop byte (what to look for to end reading), a reference to the input stream, and a boolean indicating whether to stick on a '\0' 
+    // a reference to the input stream, and a boolean indicating whether to stick on a '\0'
     // to the buffer or not when done reading.
-    NonBlockingSerialBuffer(uint8_t start_byte, uint8_t stop_byte, Stream &stream, bool string_termination = false);
+    NonBlockingSerialBuffer(uint8_t start_byte, Stream &stream, bool string_termination = false);
 
-    // Reads from the serial input buffer, adding anything new to the buffer, and returns a BufferResult - kError, kNothingToRead, kReading, kDone.
+    // Reads from the serial input buffer, adding anything new to the buffer, and returns a BufferResult - kError, kNothingToRead, kReadingPayload, kDone.
     BufferResult Read();
 
     // Removes all the bytes from the input stream.
@@ -43,7 +44,7 @@ public:
 };
 
 template <uint32_t kBufferSize>
-NonBlockingSerialBuffer<kBufferSize>::NonBlockingSerialBuffer(uint8_t start_byte, uint8_t stop_byte, Stream &stream, bool string_termination) : start_byte_(start_byte), stop_byte_(stop_byte), stream_(&stream), string_termination_(string_termination) {}
+NonBlockingSerialBuffer<kBufferSize>::NonBlockingSerialBuffer(uint8_t start_byte, Stream &stream, bool string_termination) : start_byte_(start_byte), stream_(&stream), string_termination_(string_termination) {}
 
 template <uint32_t kBufferSize>
 BufferResult NonBlockingSerialBuffer<kBufferSize>::Read()
@@ -53,16 +54,24 @@ BufferResult NonBlockingSerialBuffer<kBufferSize>::Read()
     {
         read_bytes = true;
         uint8_t in_byte = Serial.read();
-        if (state_ == ParserState::kWaitingForStateCharacter)
+        if (state_ == ParserState::kWaitingForStartCharacter)
         {
             if (in_byte == start_byte_)
             {
-                state_ = ParserState::kReading;
+                state_ = ParserState::kReadingMessageLength;
             }
         }
-        else if (state_ == ParserState::kReading)
+        else if (state_ == ParserState::kReadingMessageLength)
         {
-            if (in_byte == stop_byte_)
+            message_length_ = in_byte;
+            state_ = ParserState::kReadingPayload;
+        }
+        else if (state_ == ParserState::kReadingPayload)
+        {   
+            buffer_[write_index_] = in_byte;
+            write_index_++;
+            
+            if (write_index_ == message_length_)
             {
                 if (string_termination_)
                 {
@@ -70,16 +79,9 @@ BufferResult NonBlockingSerialBuffer<kBufferSize>::Read()
                 }
 
                 // TODO: add checksum to the buffer reader or leave all of that to outside code?
-
-                state_ = ParserState::kWaitingForStateCharacter;
+                state_ = ParserState::kWaitingForStartCharacter;
                 write_index_ = 0;
                 return BufferResult::kDone;
-                ;
-            }
-            else
-            {
-                buffer_[write_index_] = in_byte;
-                write_index_++;
             }
         }
     }

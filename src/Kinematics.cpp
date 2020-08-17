@@ -12,9 +12,7 @@ float HipOffset(LegParameters leg_params, RobotSide side) {
 }
 
 BLA::Matrix<3, 3> RotateX(float theta) {
-  BLA::Matrix<3, 3> out = {1,           0, 0,          0,         cos(theta),
-                           -sin(theta), 0, sin(theta), cos(theta)};
-  return out;
+  return {1, 0, 0, 0, cos(theta), -sin(theta), 0, sin(theta), cos(theta)};
 }
 
 BLA::Matrix<3> LegKinematics(BLA::Matrix<3> joint_angles,

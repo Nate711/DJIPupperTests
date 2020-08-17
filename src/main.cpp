@@ -46,7 +46,7 @@ void setup(void) {
   options.currents = false;
 
   // Set behavioral options
-  drive.SetAllPositionGains(DEFAULT_GAINS);
+  drive.SetPositionGains(DEFAULT_GAINS);
   // No motors are activated on startup, and the drive system will start up in
   // idle mode
 
@@ -72,11 +72,11 @@ void loop() {
              << endl;
     }
     if (r.new_kp) {
-      drive.SetAllPositionKp(interpreter.LatestKp());
+      drive.SetPositionKp(interpreter.LatestKp());
       Serial << "Kp: " << interpreter.LatestKp() << endl;
     }
     if (r.new_kd) {
-      drive.SetAllPositionKd(interpreter.LatestKd());
+      drive.SetPositionKd(interpreter.LatestKd());
       Serial.print("Kd: ");
       Serial.println(interpreter.LatestKd(), 4);
     }

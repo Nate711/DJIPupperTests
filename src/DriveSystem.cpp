@@ -58,30 +58,11 @@ void DriveSystem::SetPosition(uint8_t i, float position_reference) {
   position_reference_[i] = position_reference;
 }
 
-void DriveSystem::SetPositionKp(uint8_t i, float kp) {
-  position_gains_[i].kp = kp;
-}
+void DriveSystem::SetPositionKp(float kp) { position_gains_.kp = kp; }
 
-void DriveSystem::SetPositionKd(uint8_t i, float kd) {
-  position_gains_[i].kd = kd;
-}
+void DriveSystem::SetPositionKd(float kd) { position_gains_.kd = kd; }
 
-void DriveSystem::SetAllPositionKp(float kp) {
-  for (uint8_t i = 0; i < kNumActuators; i++) {
-    SetPositionKp(i, kp);
-  }
-}
-
-void DriveSystem::SetAllPositionKd(float kd) {
-  for (uint8_t i = 0; i < kNumActuators; i++) {
-    SetPositionKd(i, kd);
-  }
-}
-
-void DriveSystem::SetAllPositionGains(PDGains gains) {
-  SetAllPositionKp(gains.kp);
-  SetAllPositionKd(gains.kd);
-}
+void DriveSystem::SetPositionGains(PDGains gains) { position_gains_ = gains; }
 
 void DriveSystem::SetCurrent(uint8_t i, float current_reference) {
   control_mode_ = DriveControlMode::kCurrentControl;
@@ -118,7 +99,7 @@ void DriveSystem::Update() {
       ActuatorCurrentVector pd_current;
       for (size_t i = 0; i < kNumActuators; i++) {
         PD(pd_current[i], GetActuatorPosition(i), GetActuatorVelocity(i),
-           position_reference_[i], velocity_reference_[i], position_gains_[i]);
+           position_reference_[i], velocity_reference_[i], position_gains_);
       }
       CommandCurrents(pd_current);
       break;

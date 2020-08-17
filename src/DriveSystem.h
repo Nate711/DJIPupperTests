@@ -49,7 +49,7 @@ class DriveSystem {
   BLA::Matrix<12> cartesian_position_reference_;
   BLA::Matrix<12> cartesian_velocity_reference_;
 
-  std::array<PDGains, kNumActuators> position_gains_;
+  PDGains position_gains_;
 
   // Indicates which motors are "active". Those which are inactive get 0
   // torque.
@@ -114,14 +114,12 @@ class DriveSystem {
   // only updated when Update() is called
   void SetPosition(uint8_t i, float target_position);
 
-  // Set position gains for actuator i
-  void SetPositionKp(uint8_t i, float kp);
-  void SetPositionKd(uint8_t i, float kd);
+  // Set position gains all actuators
+  void SetPositionKp(float kp);
+  void SetPositionKd(float kd);
 
   // Set position gains for all actuators
-  void SetAllPositionGains(PDGains gains);
-  void SetAllPositionKp(float kp);
-  void SetAllPositionKd(float kd);
+  void SetPositionGains(PDGains gains);
 
   // Set current target for actuator i
   void SetCurrent(uint8_t i, float target_current);

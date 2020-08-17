@@ -6,3 +6,4 @@
 .DS_Store
 .travis.yml
 .vscode/settings.json
+src/.ipynb_checkpoints/

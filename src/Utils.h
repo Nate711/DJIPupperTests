@@ -69,8 +69,7 @@ std::array<int32_t, N> ConvertToFixedPoint(std::array<float, N> in,
 Return the infinity norm of a 3-vector
 */
 float InfinityNorm3(BLA::Matrix<3> vec) {
-  return std::max(std::max(std::abs(vec(0)), std::abs(vec(1))),
-                  std::abs(vec(2)));
+  return std::max(std::max(abs(vec(0)), abs(vec(1))), abs(vec(2)));
 }
 
 // /*

@@ -27,6 +27,7 @@ struct DrivePrintOptions {
   bool position_references = true;
   bool velocity_references = true;
   bool current_references = true;
+  bool last_current = true;
 };
 
 // Class for controlling the 12 (no more and no less) actuators on Pupper
@@ -46,10 +47,15 @@ class DriveSystem {
   ActuatorVelocityVector velocity_reference_;
   ActuatorCurrentVector current_reference_;
 
-  BLA::Matrix<12> cartesian_position_reference_;
-  BLA::Matrix<12> cartesian_velocity_reference_;
+  ActuatorCurrentVector last_commanded_current_;
+
+  ActuatorPositionVector cartesian_position_reference_;
+  ActuatorVelocityVector cartesian_velocity_reference_;
 
   PDGains position_gains_;
+
+  BLA::Matrix<3> cartesian_kp_;
+  BLA::Matrix<3> cartesian_kd_;
 
   // Indicates which motors are "active". Those which are inactive get 0
   // torque.
@@ -77,10 +83,13 @@ class DriveSystem {
   // Constants defining the robot geometry.
   LegParameters leg_parameters_;
 
+  // Important direction multipliers
+  std::array<float, 12> direction_multipliers_;/* */
+
   // Initialize the two CAN buses
   void InitializeDrive();
 
-  RobotSide GetLegSide(uint8_t leg_index);
+  RobotSide LegSide(uint8_t leg_index);
 
  public:
   // Construct drive system and initialize CAN buses.
@@ -106,6 +115,14 @@ class DriveSystem {
   // Set the zero point for all actuators from the provided vector.
   void SetZeroPositions(ActuatorPositionVector zero);
 
+  ActuatorPositionVector CartesianPositions(BLA::Matrix<3> joint_angles);
+
+  ActuatorPositionVector DefaultCartesianPositions();
+
+  // Sets the cartesian reference positions to the position of the leg taken
+  // When all joing angles are zero.
+  void SetDefaultCartesianPositions();
+
   // Sets the positions for all twelve actuators.
   void SetAllPositions(ActuatorPositionVector pos);
 
@@ -120,6 +137,14 @@ class DriveSystem {
 
   // Set position gains for all actuators
   void SetPositionGains(PDGains gains);
+
+  void SetCartesianKp(BLA::Matrix<3> kp);
+
+  void SetCartesianKd(BLA::Matrix<3> kd);
+
+  void SetCartesianPositions(ActuatorPositionVector pos);
+
+  void SetCartesianVelocities(ActuatorVelocityVector vel);
 
   // Set current target for actuator i
   void SetCurrent(uint8_t i, float target_current);
@@ -186,17 +211,17 @@ class DriveSystem {
 
   // Returns vector of joint angles for the given leg i.
   // Order is {abductor, hip, knee}
-  BLA::Matrix<3> GetLegJointAngles(uint8_t i);
+  BLA::Matrix<3> LegJointAngles(uint8_t i);
 
   // Returns vector of joint angles for the given leg i.
   // Order is {abductor, hip, knee}
-  BLA::Matrix<3> GetLegJointVelocities(uint8_t i);
+  BLA::Matrix<3> LegJointVelocities(uint8_t i);
 
   // Get the cartesian reference position for leg i.
-  BLA::Matrix<3> GetLegCartesianPositionReference(uint8_t i);
+  BLA::Matrix<3> LegCartesianPositionReference(uint8_t i);
 
   // Return the cartesian reference velocity for leg i.
-  BLA::Matrix<3> GetLegCartesianVelocityReference(uint8_t i);
+  BLA::Matrix<3> LegCartesianVelocityReference(uint8_t i);
 
   // Get the C610Bus object for the front actuators.
   C610Bus<CAN1> &FrontBus();

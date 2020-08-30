@@ -11,6 +11,7 @@
 enum class CheckResultFlag { kNothing, kNewCommand, kError };
 struct CheckResult {
   bool new_position = false;
+  bool new_cartesian_position = false;
   bool new_kp = false;
   bool new_kd = false;
   bool new_max_current = false;
@@ -23,6 +24,7 @@ struct CheckResult {
 class CommandInterpreter {
  private:
   ActuatorPositionVector position_command_;
+  ActuatorPositionVector cartesian_position_command_;
   ActuatorActivations activations_;
 
   PDGains gain_command_;
@@ -46,6 +48,8 @@ class CommandInterpreter {
 
   // Returns an ActuatorPositionVector with the latest position commands.
   ActuatorPositionVector LatestPositionCommand();
+
+  ActuatorPositionVector LatestCartesianPositionCommand();
 
   ActuatorActivations LatestActivations();
 
@@ -99,6 +103,13 @@ CheckResult CommandInterpreter::CheckForMessages() {
         }
         return result;
       }
+      if (obj.containsKey("cart_pos")) {
+          auto json_array = obj["cart_pos"].as<JsonArray>();
+          result.flag = CopyJsonArray(json_array, cartesian_position_command_);
+          if (result.flag == CheckResultFlag::kNewCommand) {
+              result.new_cartesian_position = true;
+          }
+      }
       if (obj.containsKey("kp")) {
         gain_command_.kp = obj["kp"].as<float>();
         result.new_kp = true;
@@ -141,6 +152,10 @@ CheckResult CommandInterpreter::CheckForMessages() {
 
 ActuatorPositionVector CommandInterpreter::LatestPositionCommand() {
   return position_command_;
+}
+
+ActuatorPositionVector CommandInterpreter::LatestCartesianPositionCommand() {
+    return cartesian_position_command_;
 }
 
 ActuatorActivations CommandInterpreter::LatestActivations() {

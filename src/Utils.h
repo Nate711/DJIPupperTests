@@ -41,6 +41,16 @@ std::array<T, N> MaskArray(std::array<T, N> &array,
   return out;
 }
 
+template <class T, size_t N>
+std::array<T, N> ElemMultiply(const std::array<T, N> first,
+                           const std::array<T, N> second) {
+  std::array<T, N> out;
+  for (size_t i = 0; i < N; i++) {
+    out[i] = first[i] * second[i];
+  }
+  return out;
+}
+
 template <size_t N>
 std::array<int32_t, N> ConvertToFixedPoint(std::array<float, N> in,
                                            float factor) {
@@ -79,3 +89,15 @@ float InfinityNorm3(BLA::Matrix<3> vec) {
 //     float v = max(max(abs(vec(0)), abs(vec(1))), abs(vec(2)));
 //     return vec / v;
 // }
+
+/* 
+Construct a 3x3 diagonal matrix from a provided 3-vector.
+*/
+BLA::Matrix<3, 3> DiagonalMatrix3x3(BLA::Matrix<3> diag) {
+  BLA::Matrix<3, 3> retval;
+  retval.Fill(0);
+  for (int i = 0; i < 3; i++) {
+    retval(i, i) = diag(i);
+  }
+  return retval;
+}

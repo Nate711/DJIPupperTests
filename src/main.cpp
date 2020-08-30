@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <BasicLinearAlgebra.h>
 #include <CommandInterpreter.h>
 #include <FlexCAN_T4.h>
 #include <NonBlockingSerialBuffer.h>
@@ -59,6 +60,24 @@ void setup(void) {
 
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
+
+  // TODO: TEST ONLY
+  // TODO: Need to start teensy in zero current mode, start robot, then start teensy back up with more current. 
+  // TODO: implement commands in python
+  drive.DeactivateAll();
+  
+  drive.ActivateActuator(9);
+  drive.ActivateActuator(10);
+  drive.ActivateActuator(11);
+
+  drive.SetMaxCurrent(5.0);
+  drive.ZeroCurrentPosition();
+  drive.SetCartesianPositions(drive.DefaultCartesianPositions());
+
+  drive.SetCartesianKp({2000.0, 2000.0, 0.0});
+  drive.SetCartesianKd({0.2, 0.2, 0.05});
+
+  drive.SetCartesianPositions(drive.CartesianPositions({0, 0.79, -1.57}));
 }
 
 void loop() {
@@ -70,6 +89,11 @@ void loop() {
       drive.SetAllPositions(interpreter.LatestPositionCommand());
       Serial << "Position command: " << interpreter.LatestPositionCommand()
              << endl;
+    }
+    if (r.new_cartesian_position) {
+      drive.SetCartesianPositions(interpreter.LatestCartesianPositionCommand());
+      Serial << "Cartesian position command: "
+             << interpreter.LatestCartesianPositionCommand();
     }
     if (r.new_kp) {
       drive.SetPositionKp(interpreter.LatestKp());
@@ -105,15 +129,15 @@ void loop() {
   }
 
   // TODO: turn this printing on and off with msgpack/json commands
-  // if (millis() - last_print_ts >= options.print_delay_millis)
-  // {
-  //     drive.PrintStatus(options);
-  //     last_print_ts = millis();
-  // }
+  if (millis() - last_print_ts >= options.print_delay_millis)
+  {
+      drive.PrintStatus(options);
+      last_print_ts = millis();
+  }
 
-  // if (millis() - last_header_ts >= options.header_delay_millis)
-  // {
-  //     drive.PrintHeader(options);
-  //     last_header_ts = millis();
-  // }
+  if (millis() - last_header_ts >= options.header_delay_millis)
+  {
+      drive.PrintHeader(options);
+      last_header_ts = millis();
+  }
 }

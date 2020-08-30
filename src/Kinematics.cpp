@@ -15,7 +15,7 @@ BLA::Matrix<3, 3> RotateX(float theta) {
   return {1, 0, 0, 0, cos(theta), -sin(theta), 0, sin(theta), cos(theta)};
 }
 
-BLA::Matrix<3> LegKinematics(BLA::Matrix<3> joint_angles,
+BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
                              LegParameters leg_params, RobotSide side) {
   float l1 = leg_params.thigh_length;
   float l2 = leg_params.shank_length;
@@ -79,13 +79,4 @@ Args:
 BLA::Matrix<3> ForceToTorque(BLA::Matrix<3> leg_angles, BLA::Matrix<3> force,
                              LegParameters leg_params, RobotSide side) {
   return LegJacobian(leg_angles, leg_params, side) * force;
-}
-
-BLA::Matrix<3, 3> DiagonalMatrix3x3(float value) {
-  BLA::Matrix<3, 3> retval;
-  retval.Fill(0);
-  for (int i = 0; i < 3; i++) {
-    retval(i, i) = value;
-  }
-  return retval;
 }

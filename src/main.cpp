@@ -47,13 +47,9 @@ void setup(void) {
   options.currents = false;
 
   // Set behavioral options
-  drive.SetPositionGains(DEFAULT_GAINS);
-  // No motors are activated on startup, and the drive system will start up in
-  // idle mode
-
+  drive.SetPositionKp(DEFAULT_GAINS.kp);
+  drive.SetPositionKd(DEFAULT_GAINS.kd);
   drive.SetIdle();
-  drive.ActivateAll();
-
   drive.PrintHeader(options);
 
   interpreter.Flush();
@@ -62,7 +58,6 @@ void setup(void) {
   digitalWrite(13, HIGH);
 
   // TODO: TEST ONLY
-  // drive.DeactivateAll();
 
   // drive.ActivateActuator(0);
   // drive.ActivateActuator(1);
@@ -76,10 +71,6 @@ void setup(void) {
   // drive.SetCartesianPositions(drive.DefaultCartesianPositions());
   // drive.SetCartesianKp({500.0, 500.0, 0.0});  // [A/m]
   // drive.SetCartesianKd({0.2, 0.2, 0.05});     // [A / (m/s)]
-
-  // drive.SetCartesianPositions(drive.CartesianPositions({0, 0.79, -1.57}));
-  // Serial << "TEST 1" << endl;
-  // Serial << drive.cartesian_position_reference_ << endl;
 }
 
 void loop() {
@@ -88,7 +79,7 @@ void loop() {
   if (r.flag == CheckResultFlag::kNewCommand) {
     // Serial << "Got new command." << endl;
     if (r.new_position) {
-      drive.SetAllPositions(interpreter.LatestPositionCommand());
+      drive.SetJointPositions(interpreter.LatestPositionCommand());
       Serial << "Position command: " << interpreter.LatestPositionCommand()
              << endl;
     }

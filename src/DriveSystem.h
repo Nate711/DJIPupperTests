@@ -47,15 +47,13 @@ class DriveSystem {
   ActuatorCurrentVector current_reference_;
 
   ActuatorCurrentVector last_commanded_current_;
-
- public:
   ActuatorPositionVector cartesian_position_reference_;
-
- private:
   ActuatorVelocityVector cartesian_velocity_reference_;
 
   PDGains position_gains_;
   PDGains3x3 cartesian_position_gains_;
+
+  BLA::Matrix<12> ff_force_;
 
   // Indicates which motors are "active". Those which are inactive get 0
   // torque.
@@ -94,7 +92,9 @@ class DriveSystem {
   RobotSide LegSide(uint8_t leg_index);
 
   // Returns the position of the leg relative to the center of the body
-  BLA::Matrix<3> HipPosition(uint8_t i);
+  BLA::Matrix<3> HipPosition(uint8_t leg_index);
+
+  BLA::Matrix<3> LegFeedForwardForce(uint8_t leg_index);
 
  public:
   // Construct drive system and initialize CAN buses.
@@ -104,6 +104,9 @@ class DriveSystem {
   // Run one iteration through the control loop. Action depends on the current
   // mode.
   void Update();
+
+  // Calculate motor torques for cartesian position control
+  BLA::Matrix<12> CartesianPositionControl();
 
   // Check for messages on the CAN bus and run callbacks.
   void CheckForCANMessages();
@@ -129,23 +132,11 @@ class DriveSystem {
   void SetDefaultCartesianPositions();
 
   // Sets the positions for all twelve actuators.
-  void SetAllPositions(ActuatorPositionVector pos);
-
-  // Set the position target for actuator i
-  // Note that the current commanded to the motor controller is
-  // only updated when Update() is called
-  void SetPosition(uint8_t i, float target_position);
+  void SetJointPositions(ActuatorPositionVector pos);
 
   // Set position gains all actuators
   void SetPositionKp(float kp);
   void SetPositionKd(float kd);
-
-  // Set position gains for all actuators
-  void SetPositionGains(PDGains gains);
-
-  void SetCartesianKp(BLA::Matrix<3> kp);
-
-  void SetCartesianKd(BLA::Matrix<3> kd);
 
   void SetCartesianKp3x3(BLA::Matrix<3, 3> kp);
 
@@ -154,6 +145,9 @@ class DriveSystem {
   void SetCartesianPositions(ActuatorPositionVector pos);
 
   void SetCartesianVelocities(ActuatorVelocityVector vel);
+
+  // Set feed forward force
+  void SetFeedForwardForce(BLA::Matrix<12> force);
 
   // Set current target for actuator i
   void SetCurrent(uint8_t i, float target_current);
@@ -164,19 +158,7 @@ class DriveSystem {
   // Set maximum PID and current control torque
   void SetMaxCurrent(float max_current);
 
-  // Activates an actuator. Deactive actuators will be commanded 0 amps.
-  void ActivateActuator(uint8_t i);
-
-  // Deactivate an actuator.
-  void DeactivateActuator(uint8_t i);
-
   void SetActivations(ActuatorActivations acts);
-
-  // Activates all twelve actuators.
-  void ActivateAll();
-
-  // Deactivates all twelve actuators.
-  void DeactivateAll();
 
   // Send zero torques to the escs.
   void CommandIdle();

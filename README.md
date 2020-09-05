@@ -45,16 +45,21 @@ Example:
 ```cpp
 #include "Arduino.h"
 #include "DriveSystem.h"
+#include "RobotTypes.h"
 
 long last_command = 0;
 DriveSystem d; // Initialization
 
 void setup()
 {
-    d.SetPosition(6, 0.5); // Set the setpoint for motor 6 (ID 1 on CAN2) to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
-    d.SetAllPositionKp(4.5); // Set the kp pid gain for all motors to kp=4.5 [A/rad]
-    d.SetAllPositionKd(0.001); // Set the kp pid gain for all motors to kd=0.0003 [A/rad/s]
-    d.ActivateActuator(6); // Activate motor 6 (ID 1 on CAN2), all other motors will be idling (zero voltage)
+    ActuatorPositionVector p;
+    p[6] = 0.5;
+    d.SetPositions(p); // Set the setpoint for motor 6 (ID 1 on CAN2) to 0.5 radians. This setpoint is for the angle of the output shaft, not the motor.
+    d.SetPositionKp(4.5); // Set the kp pid gain for all motors to kp=4.5 [A/rad]
+    d.SetPositionKd(0.001); // Set the kp pid gain for all motors to kd=0.0003 [A/rad/s]
+    ActuatorActivations a;
+    a[6] = true;
+    d.SetActivations(a); // Activate motor 6 (ID 1 on CAN2), all other motors will be idling (zero voltage)
     // Other control options include current control and idle.
 }
 void loop()

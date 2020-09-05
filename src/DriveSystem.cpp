@@ -82,21 +82,14 @@ void DriveSystem::SetDefaultCartesianPositions() {
   cartesian_position_reference_ = DefaultCartesianPositions();
 }
 
-void DriveSystem::SetAllPositions(ActuatorPositionVector pos) {
+void DriveSystem::SetJointPositions(ActuatorPositionVector pos) {
   control_mode_ = DriveControlMode::kPositionControl;
   position_reference_ = pos;
-}
-
-void DriveSystem::SetPosition(uint8_t i, float position_reference) {
-  control_mode_ = DriveControlMode::kPositionControl;
-  position_reference_[i] = position_reference;
 }
 
 void DriveSystem::SetPositionKp(float kp) { position_gains_.kp = kp; }
 
 void DriveSystem::SetPositionKd(float kd) { position_gains_.kd = kd; }
-
-void DriveSystem::SetPositionGains(PDGains gains) { position_gains_ = gains; }
 
 void DriveSystem::SetCartesianKp3x3(BLA::Matrix<3, 3> kp) {
   cartesian_position_gains_.kp = kp;
@@ -104,14 +97,6 @@ void DriveSystem::SetCartesianKp3x3(BLA::Matrix<3, 3> kp) {
 
 void DriveSystem::SetCartesianKd3x3(BLA::Matrix<3, 3> kd) {
   cartesian_position_gains_.kd = kd;
-}
-
-void DriveSystem::SetCartesianKp(BLA::Matrix<3> kp) {
-  cartesian_position_gains_.kp = DiagonalMatrix3x3(kp);
-}
-
-void DriveSystem::SetCartesianKd(BLA::Matrix<3> kd) {
-  cartesian_position_gains_.kd = DiagonalMatrix3x3(kd);
 }
 
 void DriveSystem::SetCartesianPositions(ActuatorPositionVector pos) {
@@ -122,6 +107,10 @@ void DriveSystem::SetCartesianPositions(ActuatorPositionVector pos) {
 void DriveSystem::SetCartesianVelocities(ActuatorVelocityVector vel) {
   control_mode_ = DriveControlMode::kCartesianPositionControl;
   cartesian_velocity_reference_ = vel;
+}
+
+void DriveSystem::SetFeedForwardForce(BLA::Matrix<12> force) {
+  ff_force_ = force;
 }
 
 void DriveSystem::SetCurrent(uint8_t i, float current_reference) {
@@ -137,7 +126,42 @@ void DriveSystem::SetMaxCurrent(float max_current) {
   max_current_ = max_current;
 }
 
-// TODO: Add saturation to PID!
+BLA::Matrix<12> DriveSystem::CartesianPositionControl() {
+  BLA::Matrix<12> actuator_torques;
+  for (int leg_index = 0; leg_index < 4; leg_index++) {
+    auto joint_angles = LegJointAngles(leg_index);
+    auto joint_velocities = LegJointVelocities(leg_index);
+    BLA::Matrix<3, 3> jac =
+        LegJacobian(joint_angles, leg_parameters_, leg_index);
+
+    auto measured_hip_relative_positions =
+        ForwardKinematics(joint_angles, leg_parameters_, leg_index);
+    auto measured_velocities = jac * joint_velocities;
+    auto reference_hip_relative_positions =
+        LegCartesianPositionReference(leg_index) - HipPosition(leg_index);
+    auto reference_velocities = LegCartesianVelocityReference(leg_index);
+
+    auto cartesian_forces =
+        PDControl3(measured_hip_relative_positions, measured_velocities,
+                   reference_hip_relative_positions, reference_velocities,
+                   cartesian_position_gains_) +
+        LegFeedForwardForce(leg_index);
+    auto joint_torques = ~jac * cartesian_forces;
+
+    // Ensures that the direction of the force is preserved when motors
+    // saturate
+    float norm = InfinityNorm3(joint_torques);
+    if (norm > max_current_) {
+      joint_torques = joint_torques * max_current_ / norm;
+    }
+
+    actuator_torques(3 * leg_index) = joint_torques(0);
+    actuator_torques(3 * leg_index + 1) = joint_torques(1);
+    actuator_torques(3 * leg_index + 2) = joint_torques(2);
+  }
+  return actuator_torques;
+}
+
 void DriveSystem::Update() {
   // If there are errors, put the system in the error state.
   if (CheckErrors() == DriveControlMode::kError) {
@@ -146,7 +170,6 @@ void DriveSystem::Update() {
 
   switch (control_mode_) {
     case DriveControlMode::kError: {
-      // TODO: Add some sort of error handling.
       Serial << "ERROR" << endl;
       CommandIdle();
       break;
@@ -165,37 +188,7 @@ void DriveSystem::Update() {
       break;
     }
     case DriveControlMode::kCartesianPositionControl: {
-      ActuatorCurrentVector cartesian_pd_currents;
-      for (int leg_index = 0; leg_index < 4; leg_index++) {
-        auto joint_angles = LegJointAngles(leg_index);
-        auto joint_velocities = LegJointVelocities(leg_index);
-        auto jac = LegJacobian(joint_angles, leg_parameters_, leg_index);
-
-        auto measured_hip_relative_positions =
-            ForwardKinematics(joint_angles, leg_parameters_, leg_index);
-        auto measured_velocities = jac * joint_velocities;
-        auto reference_hip_relative_positions =
-            LegCartesianPositionReference(leg_index) - HipPosition(leg_index);
-        auto reference_velocities = LegCartesianVelocityReference(leg_index);
-
-        auto cartesian_forces =
-            PDControl3(measured_hip_relative_positions, measured_velocities,
-                       reference_hip_relative_positions, reference_velocities,
-                       cartesian_position_gains_);
-        auto joint_torques = ~jac * cartesian_forces;
-
-        // Ensures that the direction of the force is preserved when motors
-        // saturate
-        float norm = InfinityNorm3(joint_torques);
-        if (norm > max_current_) {
-          joint_torques = joint_torques * max_current_ / norm;
-        }
-
-        cartesian_pd_currents[3 * leg_index] = joint_torques(0);
-        cartesian_pd_currents[3 * leg_index + 1] = joint_torques(1);
-        cartesian_pd_currents[3 * leg_index + 2] = joint_torques(2);
-      }
-      CommandCurrents(cartesian_pd_currents);
+      CommandCurrents(VectorToArray(CartesianPositionControl()));
       break;
     }
     case DriveControlMode::kCurrentControl: {
@@ -205,24 +198,8 @@ void DriveSystem::Update() {
   }
 }
 
-void DriveSystem::ActivateActuator(uint8_t i) { active_mask_[i] = true; }
-
-void DriveSystem::DeactivateActuator(uint8_t i) { active_mask_[i] = false; }
-
 void DriveSystem::SetActivations(ActuatorActivations acts) {
   active_mask_ = acts;  // Is this a copy?
-}
-
-void DriveSystem::ActivateAll() {
-  for (size_t i = 0; i < kNumActuators; i++) {
-    ActivateActuator(i);
-  }
-}
-
-void DriveSystem::DeactivateAll() {
-  for (size_t i = 0; i < kNumActuators; i++) {
-    DeactivateActuator(i);
-  }
 }
 
 void DriveSystem::CommandIdle() {
@@ -234,7 +211,6 @@ void DriveSystem::CommandIdle() {
 void DriveSystem::CommandCurrents(ActuatorCurrentVector currents) {
   ActuatorCurrentVector current_command =
       Constrain(currents, -max_current_, max_current_);
-  // TODO: kind of redundant with constrain right above
   if (Maximum(current_command) > fault_current_ ||
       Minimum(current_command) < -fault_current_) {
     Serial << "Requested current too large. Erroring out." << endl;
@@ -363,6 +339,10 @@ BLA::Matrix<3> DriveSystem::HipPosition(uint8_t i) {
       return {0, 0, 0};
     }
   }
+}
+
+BLA::Matrix<3> DriveSystem::LegFeedForwardForce(uint8_t i) {
+  return {ff_force_(3 * i), ff_force_(3 * i + 1), ff_force_(3 * i + 2)};
 }
 
 void DriveSystem::PrintHeader(DrivePrintOptions options) {

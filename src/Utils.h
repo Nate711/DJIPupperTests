@@ -101,3 +101,12 @@ BLA::Matrix<3, 3> DiagonalMatrix3x3(BLA::Matrix<3> diag) {
   }
   return retval;
 }
+
+template <int N>
+std::array<float, N> VectorToArray(BLA::Matrix<N> vec) {
+  std::array<float, N> out;
+  for(int i = 0; i < N; i++) {
+    out[i] = vec(i);
+  }
+  return out;
+}

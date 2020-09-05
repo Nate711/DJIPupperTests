@@ -16,6 +16,7 @@ struct CheckResult {
   bool new_kd = false;
   bool new_cartesian_kp = false;
   bool new_cartesian_kd = false;
+  bool new_feedforward_force = false;
   bool new_max_current = false;
   bool new_activation = false;
   bool do_zero = false;
@@ -28,6 +29,7 @@ class CommandInterpreter {
   ActuatorPositionVector position_command_;
   ActuatorPositionVector cartesian_position_command_;
   ActuatorActivations activations_;
+  ActuatorCurrentVector feedforward_force_;
 
   PDGains3x3 cartesian_gain_command_;
   PDGains gain_command_;
@@ -95,82 +97,95 @@ CheckResult CommandInterpreter::CheckForMessages() {
     auto err = use_msgpack_ ? deserializeMsgPack(doc_, reader_.buffer_)
                             : deserializeJson(doc_, reader_.buffer_);
     if (err) {
-      Serial << "deserialize failed: " << err.c_str() << endl;
+      Serial << "Deserialize failed: " << err.c_str() << endl;
       result.flag = CheckResultFlag::kError;
       return result;
-    } else {
-      auto obj = doc_.as<JsonObject>();
-      if (obj.containsKey("pos")) {
-        auto json_array = obj["pos"].as<JsonArray>();
-        result.flag = CopyJsonArray(json_array, position_command_);
-        if (result.flag == CheckResultFlag::kNewCommand) {
-          result.new_position = true;
-        }
+    }
+    auto obj = doc_.as<JsonObject>();
+    if (obj.containsKey("pos")) {
+      auto json_array = obj["pos"].as<JsonArray>();
+      result.flag = CopyJsonArray(json_array, position_command_);
+      if (result.flag == CheckResultFlag::kError) {
         return result;
       }
-      if (obj.containsKey("cart_pos")) {
-        auto json_array = obj["cart_pos"].as<JsonArray>();
-        result.flag = CopyJsonArray(json_array, cartesian_position_command_);
-        if (result.flag == CheckResultFlag::kNewCommand) {
-          result.new_cartesian_position = true;
-        }
-      }
-      if (obj.containsKey("cart_kp")) {
-        auto json_array = obj["cart_kp"].as<JsonArray>();
-        std::array<float, 3> kp_gains;
-        result.flag = CopyJsonArray(json_array, kp_gains);
-        cartesian_gain_command_.kp(0, 0) = kp_gains[0];
-        cartesian_gain_command_.kp(1, 1) = kp_gains[1];
-        cartesian_gain_command_.kp(2, 2) = kp_gains[2];
-        if (result.flag == CheckResultFlag::kNewCommand) {
-          result.new_cartesian_kp = true;
-        }
-      }
-      if (obj.containsKey("cart_kd")) {
-        auto json_array = obj["cart_kd"].as<JsonArray>();
-        std::array<float, 3> kd_gains;
-        result.flag = CopyJsonArray(json_array, kd_gains);
-        cartesian_gain_command_.kd(0, 0) = kd_gains[0];
-        cartesian_gain_command_.kd(1, 1) = kd_gains[1];
-        cartesian_gain_command_.kd(2, 2) = kd_gains[2];
-        if (result.flag == CheckResultFlag::kNewCommand) {
-          result.new_cartesian_kd = true;
-        }
-      }
-      if (obj.containsKey("kp")) {
-        gain_command_.kp = obj["kp"].as<float>();
-        result.new_kp = true;
-        result.flag = CheckResultFlag::kNewCommand;
-      }
-      if (obj.containsKey("kd")) {
-        gain_command_.kd = obj["kd"].as<float>();
-        result.new_kd = true;
-        result.flag = CheckResultFlag::kNewCommand;
-      }
-      if (obj.containsKey("max_current")) {
-        max_current_ = obj["max_current"].as<float>();
-        result.new_max_current = true;
-        result.flag = CheckResultFlag::kNewCommand;
-      }
-      if (obj.containsKey("activations")) {
-        auto json_array = obj["activations"].as<JsonArray>();
-        result.flag = CopyJsonArray(json_array, activations_);
-        if (result.flag == CheckResultFlag::kNewCommand) {
-          result.new_activation = true;
-        }
+      result.new_position = result.flag == CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("cart_pos")) {
+      auto json_array = obj["cart_pos"].as<JsonArray>();
+      result.flag = CopyJsonArray(json_array, cartesian_position_command_);
+      if (result.flag == CheckResultFlag::kError) {
         return result;
       }
-      if (obj.containsKey("zero")) {
-        if (obj["zero"].as<bool>()) {
-          result.flag = CheckResultFlag::kNewCommand;
-          result.do_zero = true;
-        }
+      result.new_cartesian_position =
+          result.flag == CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("cart_kp")) {
+      auto json_array = obj["cart_kp"].as<JsonArray>();
+      std::array<float, 3> kp_gains;
+      result.flag = CopyJsonArray(json_array, kp_gains);
+      if (result.flag == CheckResultFlag::kError) {
+        return result;
       }
-      if (obj.containsKey("idle")) {
-        if (obj["idle"].as<bool>()) {
-          result.flag = CheckResultFlag::kNewCommand;
-          result.do_idle = true;
-        }
+      cartesian_gain_command_.kp(0, 0) = kp_gains[0];
+      cartesian_gain_command_.kp(1, 1) = kp_gains[1];
+      cartesian_gain_command_.kp(2, 2) = kp_gains[2];
+      result.new_cartesian_kp = result.flag == CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("cart_kd")) {
+      auto json_array = obj["cart_kd"].as<JsonArray>();
+      std::array<float, 3> kd_gains;
+      result.flag = CopyJsonArray(json_array, kd_gains);
+      if (result.flag == CheckResultFlag::kError) {
+        return result;
+      }
+      cartesian_gain_command_.kd(0, 0) = kd_gains[0];
+      cartesian_gain_command_.kd(1, 1) = kd_gains[1];
+      cartesian_gain_command_.kd(2, 2) = kd_gains[2];
+      result.new_cartesian_kd = result.flag == CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("ff_force")) {
+      auto json_array = obj["ff_force"].as<JsonArray>();
+      result.flag = CopyJsonArray(json_array, feedforward_force_);
+      if (result.flag == CheckResultFlag::kError) {
+        return result;
+      }
+      result.new_feedforward_force =
+          result.flag == CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("kp")) {
+      gain_command_.kp = obj["kp"].as<float>();
+      result.new_kp = true;
+      result.flag = CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("kd")) {
+      gain_command_.kd = obj["kd"].as<float>();
+      result.new_kd = true;
+      result.flag = CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("max_current")) {
+      max_current_ = obj["max_current"].as<float>();
+      result.new_max_current = true;
+      result.flag = CheckResultFlag::kNewCommand;
+    }
+    if (obj.containsKey("activations")) {
+      auto json_array = obj["activations"].as<JsonArray>();
+      result.flag = CopyJsonArray(json_array, activations_);
+      if (result.flag == CheckResultFlag::kError) {
+        return result;
+      }
+      result.new_activation = result.flag == CheckResultFlag::kNewCommand;
+      return result;
+    }
+    if (obj.containsKey("zero")) {
+      if (obj["zero"].as<bool>()) {
+        result.flag = CheckResultFlag::kNewCommand;
+        result.do_zero = true;
+      }
+    }
+    if (obj.containsKey("idle")) {
+      if (obj["idle"].as<bool>()) {
+        result.flag = CheckResultFlag::kNewCommand;
+        result.do_idle = true;
       }
     }
   }

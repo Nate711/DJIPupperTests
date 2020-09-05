@@ -42,20 +42,20 @@ class DriveSystem {
   DriveControlMode control_mode_;
 
   ActuatorPositionVector zero_position_;
-
   ActuatorPositionVector position_reference_;
   ActuatorVelocityVector velocity_reference_;
   ActuatorCurrentVector current_reference_;
 
   ActuatorCurrentVector last_commanded_current_;
 
+ public:
   ActuatorPositionVector cartesian_position_reference_;
+
+ private:
   ActuatorVelocityVector cartesian_velocity_reference_;
 
   PDGains position_gains_;
-
-  BLA::Matrix<3> cartesian_kp_;
-  BLA::Matrix<3> cartesian_kd_;
+  PDGains3x3 cartesian_position_gains_;
 
   // Indicates which motors are "active". Those which are inactive get 0
   // torque.
@@ -82,14 +82,19 @@ class DriveSystem {
 
   // Constants defining the robot geometry.
   LegParameters leg_parameters_;
+  HipLayoutParameters hip_layout_parameters_;
 
   // Important direction multipliers
-  std::array<float, 12> direction_multipliers_;/* */
+  std::array<float, 12> direction_multipliers_; /* */
 
   // Initialize the two CAN buses
   void InitializeDrive();
 
+  // Returns enum corresponding to which side the leg is on
   RobotSide LegSide(uint8_t leg_index);
+
+  // Returns the position of the leg relative to the center of the body
+  BLA::Matrix<3> HipPosition(uint8_t i);
 
  public:
   // Construct drive system and initialize CAN buses.
@@ -141,6 +146,10 @@ class DriveSystem {
   void SetCartesianKp(BLA::Matrix<3> kp);
 
   void SetCartesianKd(BLA::Matrix<3> kd);
+
+  void SetCartesianKp3x3(BLA::Matrix<3, 3> kp);
+
+  void SetCartesianKd3x3(BLA::Matrix<3, 3> kd);
 
   void SetCartesianPositions(ActuatorPositionVector pos);
 
@@ -222,12 +231,6 @@ class DriveSystem {
 
   // Return the cartesian reference velocity for leg i.
   BLA::Matrix<3> LegCartesianVelocityReference(uint8_t i);
-
-  // Get the C610Bus object for the front actuators.
-  C610Bus<CAN1> &FrontBus();
-
-  // Get the C610Bus object for the rear actuators.
-  C610Bus<CAN2> &RearBus();
 
   // Print drive information to screen
   void PrintStatus(DrivePrintOptions options);

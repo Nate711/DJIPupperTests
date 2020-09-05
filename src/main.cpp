@@ -10,7 +10,7 @@
 #include "DriveSystem.h"
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 50;      // millis
+const int PRINT_DELAY = 200;      // millis
 const int HEADER_DELAY = 5000;   // millis
 const int CONTROL_DELAY = 1000;  // micros
 const float MAX_TORQUE = 2.0;
@@ -62,22 +62,24 @@ void setup(void) {
   digitalWrite(13, HIGH);
 
   // TODO: TEST ONLY
-  // TODO: Need to start teensy in zero current mode, start robot, then start teensy back up with more current. 
-  // TODO: implement commands in python
-  drive.DeactivateAll();
-  
-  drive.ActivateActuator(9);
-  drive.ActivateActuator(10);
-  drive.ActivateActuator(11);
+  // drive.DeactivateAll();
 
-  drive.SetMaxCurrent(5.0);
-  drive.ZeroCurrentPosition();
-  drive.SetCartesianPositions(drive.DefaultCartesianPositions());
+  // drive.ActivateActuator(0);
+  // drive.ActivateActuator(1);
+  // drive.ActivateActuator(2);
+  // drive.ActivateActuator(3);
+  // drive.ActivateActuator(4);
+  // drive.ActivateActuator(5);
 
-  drive.SetCartesianKp({2000.0, 2000.0, 0.0});
-  drive.SetCartesianKd({0.2, 0.2, 0.05});
+  // drive.SetMaxCurrent(1.0);
+  // drive.ZeroCurrentPosition();
+  // drive.SetCartesianPositions(drive.DefaultCartesianPositions());
+  // drive.SetCartesianKp({500.0, 500.0, 0.0});  // [A/m]
+  // drive.SetCartesianKd({0.2, 0.2, 0.05});     // [A / (m/s)]
 
-  drive.SetCartesianPositions(drive.CartesianPositions({0, 0.79, -1.57}));
+  // drive.SetCartesianPositions(drive.CartesianPositions({0, 0.79, -1.57}));
+  // Serial << "TEST 1" << endl;
+  // Serial << drive.cartesian_position_reference_ << endl;
 }
 
 void loop() {
@@ -104,6 +106,14 @@ void loop() {
       Serial.print("Kd: ");
       Serial.println(interpreter.LatestKd(), 4);
     }
+    if (r.new_cartesian_kp) {
+      drive.SetCartesianKp3x3(interpreter.LatestCartesianKp3x3());
+      Serial << "Cartesian Kp: " << interpreter.LatestCartesianKp3x3() << endl;
+    }
+    if (r.new_cartesian_kd) {
+      drive.SetCartesianKd3x3(interpreter.LatestCartesianKd3x3());
+      Serial << "Cartesian Kd: " << interpreter.LatestCartesianKd3x3() << endl;
+    }
     if (r.new_max_current) {
       drive.SetMaxCurrent(interpreter.LatestMaxCurrent());
       Serial << "Max Current: " << interpreter.LatestMaxCurrent() << endl;
@@ -129,15 +139,13 @@ void loop() {
   }
 
   // TODO: turn this printing on and off with msgpack/json commands
-  if (millis() - last_print_ts >= options.print_delay_millis)
-  {
-      drive.PrintStatus(options);
-      last_print_ts = millis();
+  if (millis() - last_print_ts >= options.print_delay_millis) {
+    drive.PrintStatus(options);
+    last_print_ts = millis();
   }
 
-  if (millis() - last_header_ts >= options.header_delay_millis)
-  {
-      drive.PrintHeader(options);
-      last_header_ts = millis();
+  if (millis() - last_header_ts >= options.header_delay_millis) {
+    drive.PrintHeader(options);
+    last_header_ts = millis();
   }
 }

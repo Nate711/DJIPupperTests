@@ -10,13 +10,17 @@ struct LegParameters {
   float hip_offset = 0.01;  // unsigned
 };
 
+struct HipLayoutParameters {
+  float x_offset = 0.1;
+  float y_offset = 0.06;
+  float z_offset = 0.0;
+};
+
 enum class RobotSide { kLeft, kRight };
 
-float HipOffset(LegParameters leg_params, RobotSide side);
+float HipOffset(LegParameters leg_params, uint8_t leg_index);
 BLA::Matrix<3, 3> RotateX(float theta);
 BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
-                             LegParameters leg_params, RobotSide side);
+                             LegParameters leg_params, uint8_t leg_index);
 BLA::Matrix<3, 3> LegJacobian(BLA::Matrix<3> joint_angles,
-                              LegParameters leg_params, RobotSide side);
-BLA::Matrix<3> ForceToTorque(BLA::Matrix<3> leg_angles, BLA::Matrix<3> force,
-                             LegParameters leg_params, RobotSide side);
+                              LegParameters leg_params, uint8_t leg_index);

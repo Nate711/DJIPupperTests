@@ -2,11 +2,12 @@
 
 #include <BasicLinearAlgebra.h>
 
-float HipOffset(LegParameters leg_params, RobotSide side) {
-  if (side == RobotSide::kLeft) {
-    return leg_params.hip_offset;
-  } else if (side == RobotSide::kRight) {
+float HipOffset(LegParameters leg_params, uint8_t leg_index) {
+  if (leg_index == 0 || leg_index == 2) {
     return -leg_params.hip_offset;
+  }
+  if (leg_index == 1 || leg_index == 3) {
+    return leg_params.hip_offset;
   }
   return 0;
 }
@@ -16,7 +17,7 @@ BLA::Matrix<3, 3> RotateX(float theta) {
 }
 
 BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
-                             LegParameters leg_params, RobotSide side) {
+                             LegParameters leg_params, uint8_t leg_index) {
   float l1 = leg_params.thigh_length;
   float l2 = leg_params.shank_length;
 
@@ -25,7 +26,7 @@ BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
   float phi = joint_angles(2);
 
   float px = -l1 * sin(theta) - l2 * sin(theta + phi);
-  float py = HipOffset(leg_params, side);
+  float py = HipOffset(leg_params, leg_index);
   float pz = -l1 * cos(theta) - l2 * cos(theta + phi);
 
   BLA::Matrix<3> tilted_frame_coordinates = {px, py, pz};
@@ -43,7 +44,7 @@ leg_parameters: LegParameters for the leg
 side: RobotSide of the leg
 */
 BLA::Matrix<3, 3> LegJacobian(BLA::Matrix<3> joint_angles,
-                              LegParameters leg_params, RobotSide side) {
+                              LegParameters leg_params, uint8_t leg_index) {
   float l1 = leg_params.thigh_length;
   float l2 = leg_params.shank_length;
 
@@ -52,7 +53,7 @@ BLA::Matrix<3, 3> LegJacobian(BLA::Matrix<3> joint_angles,
   float phi = joint_angles(2);
 
   float px = -l1 * sin(theta) - l2 * sin(theta + phi);
-  float py = HipOffset(leg_params, side);
+  float py = HipOffset(leg_params, leg_index);
   float pz = -l1 * cos(theta) - l2 * cos(theta + phi);
 
   BLA::Matrix<3, 3> jac = {0,
@@ -65,18 +66,4 @@ BLA::Matrix<3, 3> LegJacobian(BLA::Matrix<3> joint_angles,
                            -px * cos(alpha),
                            l2 * cos(alpha) * sin(theta + phi)};
   return jac;
-}
-
-/*
-Convert a desired force to torques at the leg motors.
-
-Args:
-    leg_angles:
-    force:
-    leg_params:
-    side:
-*/
-BLA::Matrix<3> ForceToTorque(BLA::Matrix<3> leg_angles, BLA::Matrix<3> force,
-                             LegParameters leg_params, RobotSide side) {
-  return LegJacobian(leg_angles, leg_params, side) * force;
 }

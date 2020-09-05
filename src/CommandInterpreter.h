@@ -14,6 +14,8 @@ struct CheckResult {
   bool new_cartesian_position = false;
   bool new_kp = false;
   bool new_kd = false;
+  bool new_cartesian_kp = false;
+  bool new_cartesian_kd = false;
   bool new_max_current = false;
   bool new_activation = false;
   bool do_zero = false;
@@ -27,6 +29,7 @@ class CommandInterpreter {
   ActuatorPositionVector cartesian_position_command_;
   ActuatorActivations activations_;
 
+  PDGains3x3 cartesian_gain_command_;
   PDGains gain_command_;
   float max_current_;
 
@@ -58,6 +61,8 @@ class CommandInterpreter {
 
   float LatestKp();
   float LatestKd();
+  BLA::Matrix<3, 3> LatestCartesianKp3x3();
+  BLA::Matrix<3, 3> LatestCartesianKd3x3();
   float LatestMaxCurrent();
 };
 
@@ -104,11 +109,33 @@ CheckResult CommandInterpreter::CheckForMessages() {
         return result;
       }
       if (obj.containsKey("cart_pos")) {
-          auto json_array = obj["cart_pos"].as<JsonArray>();
-          result.flag = CopyJsonArray(json_array, cartesian_position_command_);
-          if (result.flag == CheckResultFlag::kNewCommand) {
-              result.new_cartesian_position = true;
-          }
+        auto json_array = obj["cart_pos"].as<JsonArray>();
+        result.flag = CopyJsonArray(json_array, cartesian_position_command_);
+        if (result.flag == CheckResultFlag::kNewCommand) {
+          result.new_cartesian_position = true;
+        }
+      }
+      if (obj.containsKey("cart_kp")) {
+        auto json_array = obj["cart_kp"].as<JsonArray>();
+        std::array<float, 3> kp_gains;
+        result.flag = CopyJsonArray(json_array, kp_gains);
+        cartesian_gain_command_.kp(0, 0) = kp_gains[0];
+        cartesian_gain_command_.kp(1, 1) = kp_gains[1];
+        cartesian_gain_command_.kp(2, 2) = kp_gains[2];
+        if (result.flag == CheckResultFlag::kNewCommand) {
+          result.new_cartesian_kp = true;
+        }
+      }
+      if (obj.containsKey("cart_kd")) {
+        auto json_array = obj["cart_kd"].as<JsonArray>();
+        std::array<float, 3> kd_gains;
+        result.flag = CopyJsonArray(json_array, kd_gains);
+        cartesian_gain_command_.kd(0, 0) = kd_gains[0];
+        cartesian_gain_command_.kd(1, 1) = kd_gains[1];
+        cartesian_gain_command_.kd(2, 2) = kd_gains[2];
+        if (result.flag == CheckResultFlag::kNewCommand) {
+          result.new_cartesian_kd = true;
+        }
       }
       if (obj.containsKey("kp")) {
         gain_command_.kp = obj["kp"].as<float>();
@@ -155,7 +182,7 @@ ActuatorPositionVector CommandInterpreter::LatestPositionCommand() {
 }
 
 ActuatorPositionVector CommandInterpreter::LatestCartesianPositionCommand() {
-    return cartesian_position_command_;
+  return cartesian_position_command_;
 }
 
 ActuatorActivations CommandInterpreter::LatestActivations() {
@@ -164,6 +191,12 @@ ActuatorActivations CommandInterpreter::LatestActivations() {
 
 float CommandInterpreter::LatestKp() { return gain_command_.kp; }
 float CommandInterpreter::LatestKd() { return gain_command_.kd; }
+BLA::Matrix<3, 3> CommandInterpreter::LatestCartesianKp3x3() {
+  return cartesian_gain_command_.kp;
+}
+BLA::Matrix<3, 3> CommandInterpreter::LatestCartesianKd3x3() {
+  return cartesian_gain_command_.kd;
+}
 
 float CommandInterpreter::LatestMaxCurrent() { return max_current_; }
 

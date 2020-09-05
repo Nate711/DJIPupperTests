@@ -65,7 +65,8 @@ ActuatorPositionVector DriveSystem::CartesianPositions(
     BLA::Matrix<3> joint_angles) {
   ActuatorPositionVector pos;
   for (int i = 0; i < 4; i++) {
-    auto p = ForwardKinematics(joint_angles, leg_parameters_, i) + HipPosition(i);
+    auto p =
+        ForwardKinematics(joint_angles, leg_parameters_, i) + HipPosition(i);
     pos[3 * i] = p(0);
     pos[3 * i + 1] = p(1);
     pos[3 * i + 2] = p(2);
@@ -97,11 +98,11 @@ void DriveSystem::SetPositionKd(float kd) { position_gains_.kd = kd; }
 
 void DriveSystem::SetPositionGains(PDGains gains) { position_gains_ = gains; }
 
-void DriveSystem::SetCartesianKp3x3(BLA::Matrix<3,3> kp) {
+void DriveSystem::SetCartesianKp3x3(BLA::Matrix<3, 3> kp) {
   cartesian_position_gains_.kp = kp;
 }
 
-void DriveSystem::SetCartesianKd3x3(BLA::Matrix<3,3> kd) {
+void DriveSystem::SetCartesianKd3x3(BLA::Matrix<3, 3> kd) {
   cartesian_position_gains_.kd = kd;
 }
 

@@ -150,7 +150,7 @@ BLA::Matrix<12> DriveSystem::CartesianPositionControl() {
 
     // Ensures that the direction of the force is preserved when motors
     // saturate
-    float norm = InfinityNorm3(joint_torques);
+    float norm = Utils::InfinityNorm3(joint_torques);
     if (norm > max_current_) {
       joint_torques = joint_torques * max_current_ / norm;
     }
@@ -188,7 +188,7 @@ void DriveSystem::Update() {
       break;
     }
     case DriveControlMode::kCartesianPositionControl: {
-      CommandCurrents(VectorToArray(CartesianPositionControl()));
+      CommandCurrents(Utils::VectorToArray<12, 12>(CartesianPositionControl()));
       break;
     }
     case DriveControlMode::kCurrentControl: {
@@ -210,25 +210,26 @@ void DriveSystem::CommandIdle() {
 
 void DriveSystem::CommandCurrents(ActuatorCurrentVector currents) {
   ActuatorCurrentVector current_command =
-      Constrain(currents, -max_current_, max_current_);
-  if (Maximum(current_command) > fault_current_ ||
-      Minimum(current_command) < -fault_current_) {
+      Utils::Constrain(currents, -max_current_, max_current_);
+  if (Utils::Maximum(current_command) > fault_current_ ||
+      Utils::Minimum(current_command) < -fault_current_) {
     Serial << "Requested current too large. Erroring out." << endl;
     control_mode_ = DriveControlMode::kError;
     return;
   }
   // Set disabled motors to zero current
-  current_command = MaskArray(current_command, active_mask_);
+  current_command = Utils::MaskArray(current_command, active_mask_);
 
   // Update record of last commanded current
   last_commanded_current_ = current_command;
 
   // Convert the currents into the motors' local frames
-  current_command = ElemMultiply(current_command, direction_multipliers_);
+  current_command =
+      Utils::ElemMultiply(current_command, direction_multipliers_);
 
   // Convert from float array to int32 array in units milli amps.
   std::array<int32_t, kNumActuators> currents_mA =
-      ConvertToFixedPoint(current_command, kMilliAmpPerAmp);
+      Utils::ConvertToFixedPoint(current_command, kMilliAmpPerAmp);
 
   // Send current commands down the CAN buses
   front_bus_.commandTorques(currents_mA[0], currents_mA[1], currents_mA[2],

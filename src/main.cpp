@@ -1,12 +1,8 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <BasicLinearAlgebra.h>
 #include <CommandInterpreter.h>
-#include <FlexCAN_T4.h>
-#include <NonBlockingSerialBuffer.h>
 #include <Streaming.h>
 
-#include "C610Bus.h"
 #include "DriveSystem.h"
 
 ////////////////////// CONFIG ///////////////////////
@@ -104,6 +100,10 @@ void loop() {
     if (r.new_cartesian_kd) {
       drive.SetCartesianKd3x3(interpreter.LatestCartesianKd3x3());
       Serial << "Cartesian Kd: " << interpreter.LatestCartesianKd3x3() << endl;
+    }
+    if (r.new_feedforward_force) {
+      auto ff = interpreter.LatestFeedForwardForce();
+      drive.SetFeedForwardForce(Utils::ArrayToVector<12, 12>(ff));
     }
     if (r.new_max_current) {
       drive.SetMaxCurrent(interpreter.LatestMaxCurrent());

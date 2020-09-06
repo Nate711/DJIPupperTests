@@ -1,10 +1,10 @@
 #pragma once
+#include <Arduino.h>
 #include <NonBlockingSerialBuffer.h>
 #include <Streaming.h>
-
+#include <ArduinoJson.h>
 #include <array>
 
-#include "Arduino.h"
 #include "PID.h"
 #include "RobotTypes.h"
 
@@ -65,6 +65,7 @@ class CommandInterpreter {
   float LatestKd();
   BLA::Matrix<3, 3> LatestCartesianKp3x3();
   BLA::Matrix<3, 3> LatestCartesianKd3x3();
+  ActuatorCurrentVector LatestFeedForwardForce();
   float LatestMaxCurrent();
 };
 
@@ -174,7 +175,6 @@ CheckResult CommandInterpreter::CheckForMessages() {
         return result;
       }
       result.new_activation = result.flag == CheckResultFlag::kNewCommand;
-      return result;
     }
     if (obj.containsKey("zero")) {
       if (obj["zero"].as<bool>()) {
@@ -211,6 +211,10 @@ BLA::Matrix<3, 3> CommandInterpreter::LatestCartesianKp3x3() {
 }
 BLA::Matrix<3, 3> CommandInterpreter::LatestCartesianKd3x3() {
   return cartesian_gain_command_.kd;
+}
+
+ActuatorCurrentVector CommandInterpreter::LatestFeedForwardForce() {
+  return feedforward_force_;
 }
 
 float CommandInterpreter::LatestMaxCurrent() { return max_current_; }

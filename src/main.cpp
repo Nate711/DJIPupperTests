@@ -4,9 +4,10 @@
 #include <Streaming.h>
 
 #include "DriveSystem.h"
+#include "Utils.h"
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 200;      // millis
+const int PRINT_DELAY = 200;     // millis
 const int HEADER_DELAY = 5000;   // millis
 const int CONTROL_DELAY = 1000;  // micros
 const float MAX_TORQUE = 2.0;
@@ -104,6 +105,8 @@ void loop() {
     if (r.new_feedforward_force) {
       auto ff = interpreter.LatestFeedForwardForce();
       drive.SetFeedForwardForce(Utils::ArrayToVector<12, 12>(ff));
+      Serial << "Feed forward: " << interpreter.LatestFeedForwardForce()
+             << endl;
     }
     if (r.new_max_current) {
       drive.SetMaxCurrent(interpreter.LatestMaxCurrent());

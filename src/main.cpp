@@ -55,13 +55,7 @@ void setup(void) {
   digitalWrite(13, HIGH);
 
   // TODO: TEST ONLY
-
-  // drive.ActivateActuator(0);
-  // drive.ActivateActuator(1);
-  // drive.ActivateActuator(2);
-  // drive.ActivateActuator(3);
-  // drive.ActivateActuator(4);
-  // drive.ActivateActuator(5);
+  drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
 
   // drive.SetMaxCurrent(1.0);
   // drive.ZeroCurrentPosition();

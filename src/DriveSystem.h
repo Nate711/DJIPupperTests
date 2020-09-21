@@ -74,7 +74,7 @@ class DriveSystem {
   // Constants specific to the C610 + M2006 setup.
   static constexpr float kReduction = 36.0F;
   static constexpr float kCountsPerRad =
-      C610::COUNTS_PER_REV * kReduction / (2 * M_PI);
+      C610::kCountsPerRev * kReduction / (2 * M_PI);
   static constexpr float kRPMPerRadS = kReduction * 2.0F * M_PI / 60.0F;
   static constexpr float kMilliAmpPerAmp = 1000.0F;
 

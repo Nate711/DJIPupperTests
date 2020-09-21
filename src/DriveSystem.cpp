@@ -29,8 +29,8 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
 }
 
 void DriveSystem::CheckForCANMessages() {
-  front_bus_.pollCAN();
-  rear_bus_.pollCAN();
+  front_bus_.PollCAN();
+  rear_bus_.PollCAN();
 }
 
 DriveControlMode DriveSystem::CheckErrors() {
@@ -232,20 +232,22 @@ void DriveSystem::CommandCurrents(ActuatorCurrentVector currents) {
       Utils::ConvertToFixedPoint(current_command, kMilliAmpPerAmp);
 
   // Send current commands down the CAN buses
-  front_bus_.commandTorques(currents_mA[0], currents_mA[1], currents_mA[2],
-                            currents_mA[3], 0);
-  front_bus_.commandTorques(currents_mA[4], currents_mA[5], 0, 0, 1);
-  rear_bus_.commandTorques(currents_mA[6], currents_mA[7], currents_mA[8],
-                           currents_mA[9], 0);
-  rear_bus_.commandTorques(currents_mA[10], currents_mA[11], 0, 0, 1);
+  front_bus_.CommandTorques(currents_mA[0], currents_mA[1], currents_mA[2],
+                            currents_mA[3], C610Subbus::kIDZeroToThree);
+  front_bus_.CommandTorques(currents_mA[4], currents_mA[5], 0, 0,
+                            C610Subbus::kIDFourToSeven);
+  rear_bus_.CommandTorques(currents_mA[6], currents_mA[7], currents_mA[8],
+                           currents_mA[9], C610Subbus::kIDZeroToThree);
+  rear_bus_.CommandTorques(currents_mA[10], currents_mA[11], 0, 0,
+                           C610Subbus::kIDFourToSeven);
 }
 
 C610 DriveSystem::GetController(uint8_t i) {
   // TODO put these constants somewhere else
   if (i >= 0 && i <= 5) {
-    return front_bus_.get(i);
+    return front_bus_.Get(i);
   } else if (i >= 6 && i <= 11) {
-    return rear_bus_.get(i - 6);
+    return rear_bus_.Get(i - 6);
   } else {
     Serial << "Invalid actuator index. Must be 0<=i<=11." << endl;
     control_mode_ = DriveControlMode::kError;

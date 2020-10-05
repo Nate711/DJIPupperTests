@@ -229,7 +229,7 @@ void DriveSystem::CommandCurrents(ActuatorCurrentVector currents) {
 
   // Convert from float array to int32 array in units milli amps.
   std::array<int32_t, kNumActuators> currents_mA =
-      Utils::ConvertToFixedPoint(current_command, kMilliAmpPerAmp);
+      Utils::ConvertToFixedPoint(current_command, 1000);
 
   // Send current commands down the CAN buses
   front_bus_.CommandTorques(currents_mA[0], currents_mA[1], currents_mA[2],
@@ -256,7 +256,7 @@ C610 DriveSystem::GetController(uint8_t i) {
 }
 
 float DriveSystem::GetRawActuatorPosition(uint8_t i) {
-  return (GetController(i).counts() / kCountsPerRad);
+  return GetController(i).Position();
 }
 
 ActuatorPositionVector DriveSystem::GetRawActuatorPositions() {
@@ -281,12 +281,28 @@ ActuatorPositionVector DriveSystem::GetActuatorPositions() {
 }
 
 float DriveSystem::GetActuatorVelocity(uint8_t i) {
-  return (GetController(i).rpm() / kRPMPerRadS) * direction_multipliers_[i];
+  return GetController(i).Velocity() * direction_multipliers_[i];
 }
 
 float DriveSystem::GetActuatorCurrent(uint8_t i) {
-  return (GetController(i).torque() / kMilliAmpPerAmp) *
+  return GetController(i).Current() *
          direction_multipliers_[i];
+}
+
+float DriveSystem::GetTotalElectricalPower() {
+  float power = 0.0;
+  for (uint8_t i = 0; i < kNumActuators; i++) {
+    power += GetController(i).ElectricalPower();
+  }
+  return power;
+}
+
+float DriveSystem::GetTotalMechanicalPower() {
+  float power = 0.0;
+  for (uint8_t i = 0; i < kNumActuators; i++) {
+    power += GetController(i).MechanicalPower();
+  }
+  return power;
 }
 
 BLA::Matrix<3> DriveSystem::LegJointAngles(uint8_t i) {

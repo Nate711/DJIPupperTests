@@ -71,13 +71,6 @@ class DriveSystem {
   // Max velocity before system errors out.
   float fault_velocity_;
 
-  // Constants specific to the C610 + M2006 setup.
-  static constexpr float kReduction = 36.0F;
-  static constexpr float kCountsPerRad =
-      C610::kCountsPerRev * kReduction / (2 * M_PI);
-  static constexpr float kRPMPerRadS = kReduction * 2.0F * M_PI / 60.0F;
-  static constexpr float kMilliAmpPerAmp = 1000.0F;
-
   // Constants defining the robot geometry.
   LegParameters leg_parameters_;
   HipLayoutParameters hip_layout_parameters_;
@@ -199,6 +192,12 @@ class DriveSystem {
 
   // Returns the motor's actual current in [A]
   float GetActuatorCurrent(uint8_t i);
+
+  // Return the total motor power
+  float GetTotalElectricalPower();
+
+  // Return the total motor mechanical power
+  float GetTotalMechanicalPower();
 
   // Returns vector of joint angles for the given leg i.
   // Order is {abductor, hip, knee}

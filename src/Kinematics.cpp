@@ -12,12 +12,41 @@ float HipOffset(LegParameters leg_params, uint8_t leg_index) {
   return 0;
 }
 
+BLA::Matrix<3> HipPosition(HipLayoutParameters hip_layout_params, uint8_t i) {
+  switch (i) {
+    // Front-right leg
+    case 0: {
+      return {hip_layout_params.x_offset, -hip_layout_params.y_offset,
+              hip_layout_params.z_offset};
+    }
+    // Front-left leg
+    case 1: {
+      return {hip_layout_params.x_offset, hip_layout_params.y_offset,
+              hip_layout_params.z_offset};
+    }
+    // Back-right leg
+    case 2: {
+      return {-hip_layout_params.x_offset, -hip_layout_params.y_offset,
+              hip_layout_params.z_offset};
+    }
+    // Back-left leg
+    case 3: {
+      return {-hip_layout_params.x_offset, hip_layout_params.y_offset,
+              hip_layout_params.z_offset};
+    }
+    default: {
+        Serial.println("Error: Invalid leg index for hip position function."); 
+        return {0, 0, 0};
+    }
+  }
+}
+
 BLA::Matrix<3, 3> RotateX(float theta) {
   return {1, 0, 0, 0, cos(theta), -sin(theta), 0, sin(theta), cos(theta)};
 }
 
 BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
-                             LegParameters leg_params, uint8_t leg_index) {
+                                 LegParameters leg_params, uint8_t leg_index) {
   float l1 = leg_params.thigh_length;
   float l2 = leg_params.shank_length;
 

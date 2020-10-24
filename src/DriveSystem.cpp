@@ -61,21 +61,16 @@ void DriveSystem::SetZeroPositions(ActuatorPositionVector zero) {
   zero_position_ = zero;
 }
 
-ActuatorPositionVector DriveSystem::CartesianPositions(
-    BLA::Matrix<3> joint_angles) {
+ActuatorPositionVector DriveSystem::DefaultCartesianPositions() {
   ActuatorPositionVector pos;
   for (int i = 0; i < 4; i++) {
-    auto p =
-        ForwardKinematics(joint_angles, leg_parameters_, i) + HipPosition(i);
+    BLA::Matrix<3> p = ForwardKinematics({0, 0, 0}, leg_parameters_, i) +
+                       HipPosition(hip_layout_parameters_, i);
     pos[3 * i] = p(0);
     pos[3 * i + 1] = p(1);
     pos[3 * i + 2] = p(2);
   }
   return pos;
-}
-
-ActuatorPositionVector DriveSystem::DefaultCartesianPositions() {
-  return CartesianPositions({0, 0, 0});
 }
 
 void DriveSystem::SetDefaultCartesianPositions() {
@@ -138,7 +133,8 @@ BLA::Matrix<12> DriveSystem::CartesianPositionControl() {
         ForwardKinematics(joint_angles, leg_parameters_, leg_index);
     auto measured_velocities = jac * joint_velocities;
     auto reference_hip_relative_positions =
-        LegCartesianPositionReference(leg_index) - HipPosition(leg_index);
+        LegCartesianPositionReference(leg_index) -
+        HipPosition(hip_layout_parameters_, leg_index);
     auto reference_velocities = LegCartesianVelocityReference(leg_index);
 
     auto cartesian_forces =
@@ -285,8 +281,7 @@ float DriveSystem::GetActuatorVelocity(uint8_t i) {
 }
 
 float DriveSystem::GetActuatorCurrent(uint8_t i) {
-  return GetController(i).Current() *
-         direction_multipliers_[i];
+  return GetController(i).Current() * direction_multipliers_[i];
 }
 
 float DriveSystem::GetTotalElectricalPower() {
@@ -327,37 +322,6 @@ BLA::Matrix<3> DriveSystem::LegCartesianVelocityReference(uint8_t i) {
   return {cartesian_velocity_reference_[3 * i],
           cartesian_velocity_reference_[3 * i + 1],
           cartesian_velocity_reference_[3 * i + 2]};
-}
-
-BLA::Matrix<3> DriveSystem::HipPosition(uint8_t i) {
-  switch (i) {
-    // Front-right leg
-    case 0: {
-      return {hip_layout_parameters_.x_offset, -hip_layout_parameters_.y_offset,
-              hip_layout_parameters_.z_offset};
-    }
-    // Front-left leg
-    case 1: {
-      return {hip_layout_parameters_.x_offset, hip_layout_parameters_.y_offset,
-              hip_layout_parameters_.z_offset};
-    }
-    // Back-right leg
-    case 2: {
-      return {-hip_layout_parameters_.x_offset,
-              -hip_layout_parameters_.y_offset,
-              hip_layout_parameters_.z_offset};
-    }
-    // Back-left leg
-    case 3: {
-      return {-hip_layout_parameters_.x_offset, hip_layout_parameters_.y_offset,
-              hip_layout_parameters_.z_offset};
-    }
-    default: {
-      Serial << "Error: Invalid leg index for hip position function." << endl;
-      control_mode_ = DriveControlMode::kError;
-      return {0, 0, 0};
-    }
-  }
 }
 
 BLA::Matrix<3> DriveSystem::LegFeedForwardForce(uint8_t i) {

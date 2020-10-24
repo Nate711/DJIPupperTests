@@ -19,8 +19,17 @@ struct HipLayoutParameters {
 enum class RobotSide { kLeft, kRight };
 
 float HipOffset(LegParameters leg_params, uint8_t leg_index);
+
+// Returns the position of the leg relative to the center of the body
+BLA::Matrix<3> HipPosition(HipLayoutParameters hip_layoout_params, uint8_t i);
+
+// Return a rotation matrix around x-axis
 BLA::Matrix<3, 3> RotateX(float theta);
+
+// Return the hip-relative cartesian coordaintes of a foot given its leg's joint angle
 BLA::Matrix<3> ForwardKinematics(BLA::Matrix<3> joint_angles,
                              LegParameters leg_params, uint8_t leg_index);
+
+// Return the velocity jacobian of the specified leg
 BLA::Matrix<3, 3> LegJacobian(BLA::Matrix<3> joint_angles,
                               LegParameters leg_params, uint8_t leg_index);

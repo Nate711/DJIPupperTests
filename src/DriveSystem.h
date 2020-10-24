@@ -84,9 +84,6 @@ class DriveSystem {
   // Returns enum corresponding to which side the leg is on
   RobotSide LegSide(uint8_t leg_index);
 
-  // Returns the position of the leg relative to the center of the body
-  BLA::Matrix<3> HipPosition(uint8_t leg_index);
-
   BLA::Matrix<3> LegFeedForwardForce(uint8_t leg_index);
 
  public:
@@ -116,8 +113,11 @@ class DriveSystem {
   // Set the zero point for all actuators from the provided vector.
   void SetZeroPositions(ActuatorPositionVector zero);
 
-  ActuatorPositionVector CartesianPositions(BLA::Matrix<3> joint_angles);
+  // Use forward kinematics to determine the body-relative foot position
+  // given the joint angles
+  // ActuatorPositionVector CartesianPositions(BLA::Matrix<3> joint_angles);
 
+  // 
   ActuatorPositionVector DefaultCartesianPositions();
 
   // Sets the cartesian reference positions to the position of the leg taken
@@ -131,26 +131,37 @@ class DriveSystem {
   void SetPositionKp(float kp);
   void SetPositionKd(float kd);
 
+  // Set the cartesian space stiffness matrix for the foot. 
   void SetCartesianKp3x3(BLA::Matrix<3, 3> kp);
 
+  // Set the cartesian-space damping matrix. 
   void SetCartesianKd3x3(BLA::Matrix<3, 3> kd);
 
+  // Set the reference cartesian positions for the feet.
+  // The vel 12-vector argument is expected to be a concatenation
+  // of the four individual foot position vectors, ie, 
+  // {1x, 1y, 1z, 2x, 2y, 2z, 3x, 3y, 3z, 4x, 4y, 4z}
   void SetCartesianPositions(ActuatorPositionVector pos);
 
+  // Set the reference cartesian velocities for the feet.
+  // The vel 12-vector argument is expected to be a concatenation
+  // of the four individual foot velocity vectors, ie, 
+  // {1x, 1y, 1z, 2x, 2y, 2z, 3x, 3y, 3z, 4x, 4y, 4z}
   void SetCartesianVelocities(ActuatorVelocityVector vel);
 
-  // Set feed forward force
+  // Set feed forward force.
   void SetFeedForwardForce(BLA::Matrix<12> force);
 
-  // Set current target for actuator i
+  // Set current target for actuator i.
   void SetCurrent(uint8_t i, float target_current);
 
-  // Set current level that would trigger a fault
+  // Set current level that would trigger a fault.
   void SetFaultCurrent(float fault_current);
 
-  // Set maximum PID and current control torque
+  // Set maximum PID and current control torque.
   void SetMaxCurrent(float max_current);
 
+  // Set activations for all the motors simultaneously.
   void SetActivations(ActuatorActivations acts);
 
   // Send zero torques to the escs.
@@ -166,11 +177,9 @@ class DriveSystem {
   back-left ...
   */
 
-  // Send torque commands to C610 escs. Converts from decimal value of amps to
-  // integer milliamps.
-  void CommandCurrents(
-      ActuatorCurrentVector currents);  // passing "torques" by reference
-                                        // enforces that it have 12 elements
+  // Send torque commands to C610 escs.
+  // The current argument has units amps.
+  void CommandCurrents(ActuatorCurrentVector currents);
 
   // Get the C610 controller object corresponding to index i.
   C610 GetController(uint8_t i);
@@ -178,13 +187,13 @@ class DriveSystem {
   // Returns the output shaft's position in [radians].
   float GetActuatorPosition(uint8_t i);
 
-  // Returns all output shaft positions [radians]
+  // Returns all output shaft positions [radians].
   ActuatorPositionVector GetActuatorPositions();
 
   // Returns the output shaft's position in [radians].
   float GetRawActuatorPosition(uint8_t i);
 
-  // Returns all output shaft positions [radians]
+  // Returns all output shaft positions [radians].
   ActuatorPositionVector GetRawActuatorPositions();
 
   // Returns the output shaft's velocity in [radians/s].

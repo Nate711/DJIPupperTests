@@ -34,11 +34,12 @@ void setup(void) {
   Serial.begin(115200);
   pinMode(13, OUTPUT);
 
-  for (int i = 0; i < 5; i++) {
+  // Wait 5 seconds before turning on. This allows the motors to boot up.
+  for (int i = 0; i < 20; i++) {
     digitalWrite(13, HIGH);
-    delay(500);
+    delay(125);
     digitalWrite(13, LOW);
-    delay(500);
+    delay(125);
   }
 
   last_command_ts = micros();
@@ -66,8 +67,11 @@ void setup(void) {
 
   interpreter.Flush();
 
+  // Activating the motors on bootup is dumb but it allows you to see debug information
+  drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
+  drive.SetMaxCurrent(0.0);
+
   // FOR TESTING ONLY
-  // drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
   // drive.SetMaxCurrent(6.0);
   // drive.ZeroCurrentPosition();
   // drive.SetCartesianPositions(drive.DefaultCartesianPositions());

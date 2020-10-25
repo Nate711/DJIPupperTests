@@ -1,8 +1,9 @@
 #pragma once
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <NonBlockingSerialBuffer.h>
 #include <Streaming.h>
-#include <ArduinoJson.h>
+
 #include <array>
 
 #include "PID.h"
@@ -21,6 +22,7 @@ struct CheckResult {
   bool new_activation = false;
   bool do_zero = false;
   bool do_idle = false;
+  bool new_debug = false;
   CheckResultFlag flag = CheckResultFlag::kNothing;
 };
 
@@ -34,6 +36,8 @@ class CommandInterpreter {
   PDGains3x3 cartesian_gain_command_;
   PDGains gain_command_;
   float max_current_;
+
+  bool print_debug_info_;
 
   StaticJsonDocument<512> doc_;
   NonBlockingSerialBuffer<512> reader_;
@@ -57,6 +61,8 @@ class CommandInterpreter {
   ActuatorPositionVector LatestCartesianPositionCommand();
 
   ActuatorActivations LatestActivations();
+
+  bool LatestDebug();
 
   // Empty the input buffer
   void Flush();
@@ -188,9 +194,16 @@ CheckResult CommandInterpreter::CheckForMessages() {
         result.do_idle = true;
       }
     }
+    if (obj.containsKey("debug")) {
+      result.flag = CheckResultFlag::kNewCommand;
+      result.new_debug = true;
+      print_debug_info_ = obj["debug"].as<bool>();
+    }
   }
   return result;
 }
+
+bool CommandInterpreter::LatestDebug() { return print_debug_info_; }
 
 ActuatorPositionVector CommandInterpreter::LatestPositionCommand() {
   return position_command_;

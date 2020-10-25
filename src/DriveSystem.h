@@ -28,6 +28,7 @@ struct DrivePrintOptions {
   bool velocity_references = true;
   bool current_references = true;
   bool last_current = true;
+  char delimiter = '\t';
 };
 
 // Class for controlling the 12 (no more and no less) actuators on Pupper
@@ -222,6 +223,7 @@ class DriveSystem {
   // Return the cartesian reference velocity for leg i.
   BLA::Matrix<3> LegCartesianVelocityReference(uint8_t i);
 
+  void PrintMsgPackStatus(DrivePrintOptions options);
   // Print drive information to screen
   void PrintStatus(DrivePrintOptions options);
 

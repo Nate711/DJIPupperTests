@@ -3,6 +3,7 @@
 #include <Streaming.h>
 
 #include "Utils.h"
+#include <ArduinoJson.h>
 
 DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   control_mode_ = DriveControlMode::kIdle;
@@ -329,72 +330,103 @@ BLA::Matrix<3> DriveSystem::LegFeedForwardForce(uint8_t i) {
 }
 
 void DriveSystem::PrintHeader(DrivePrintOptions options) {
-  char delimiter = '\t';
   if (options.time) {
-    Serial << "T" << delimiter;
+    Serial << "T" << options.delimiter;
   }
   for (size_t i = 0; i < kNumActuators; i++) {
     if (!active_mask_[i]) continue;
     if (options.positions) {
-      Serial << "p[" << i << "]" << delimiter;
+      Serial << "p[" << i << "]" << options.delimiter;
     }
     if (options.velocities) {
-      Serial << "v[" << i << "]" << delimiter;
+      Serial << "v[" << i << "]" << options.delimiter;
     }
     if (options.currents) {
-      Serial << "I[" << i << "]" << delimiter;
+      Serial << "I[" << i << "]" << options.delimiter;
     }
     if (options.position_references) {
-      Serial << "pr[" << i << "]" << delimiter;
+      Serial << "pr[" << i << "]" << options.delimiter;
     }
     if (options.velocity_references) {
-      Serial << "vr[" << i << "]" << delimiter;
+      Serial << "vr[" << i << "]" << options.delimiter;
     }
     if (options.current_references) {
-      Serial << "Ir[" << i << "]" << delimiter;
+      Serial << "Ir[" << i << "]" << options.delimiter;
     }
     if (options.last_current) {
-      Serial << "Il[" << i << "]" << delimiter;
+      Serial << "Il[" << i << "]" << options.delimiter;
     }
   }
   Serial << endl;
 }
 
+void DriveSystem::PrintMsgPackStatus(DrivePrintOptions options) {
+  StaticJsonDocument<2048> doc;
+  // 21 micros to put this doc together
+  doc["ts"] = millis();
+  for (uint8_t i = 0; i < kNumActuators; i++) {
+    if (options.positions) {
+      doc["pos"][i] = GetActuatorPosition(i);
+    }
+    if (options.velocities) {
+      doc["vel"][i] = GetActuatorVelocity(i);
+    }
+    if (options.currents) {
+      doc["cur"][i] = GetActuatorCurrent(i);
+    }
+    if (options.position_references) {
+      doc["pref"][i] = position_reference_[i];
+    }
+    if (options.velocity_references) {
+      doc["vref"][i] = velocity_reference_[i];
+    }
+    if (options.current_references) {
+      doc["cref"][i] = current_reference_[i];
+    }
+    if (options.last_current) {
+      doc["lcur"][i] = last_commanded_current_[i];
+    }
+  }
+  serializeMsgPack(doc, Serial);
+  Serial.println();
+}
+
 void DriveSystem::PrintStatus(DrivePrintOptions options) {
-  char delimiter = '\t';
+  char delimiter = options.delimiter;
   if (options.time) {
     Serial << millis() << delimiter;
   }
   for (uint8_t i = 0; i < kNumActuators; i++) {
     if (!active_mask_[i]) continue;
     if (options.positions) {
-      Serial.print(GetActuatorPosition(i), 3);
+      Serial.print(GetActuatorPosition(i), 2);
       Serial << delimiter;
     }
     if (options.velocities) {
-      Serial.print(GetActuatorVelocity(i), 1);
+      Serial.print(GetActuatorVelocity(i), 2);
       Serial << delimiter;
     }
     if (options.currents) {
-      Serial.print(GetActuatorCurrent(i), 3);
+      Serial.print(GetActuatorCurrent(i), 2);
       Serial << delimiter;
     }
     if (options.position_references) {
-      Serial.print(position_reference_[i], 3);
+      Serial.print(position_reference_[i], 2);
       Serial << delimiter;
     }
     if (options.velocity_references) {
-      Serial.print(velocity_reference_[i], 1);
+      Serial.print(velocity_reference_[i], 2);
       Serial << delimiter;
     }
     if (options.current_references) {
-      Serial.print(current_reference_[i], 3);
+      Serial.print(current_reference_[i], 2);
       Serial << delimiter;
     }
     if (options.last_current) {
-      Serial.print(last_commanded_current_[i], 3);
+      Serial.print(last_commanded_current_[i], 2);
       Serial << delimiter;
     }
   }
   Serial << endl;
+  Serial.flush();
 }

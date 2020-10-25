@@ -7,11 +7,13 @@
 #include "Utils.h"
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 200;     // millis
+const int PRINT_DELAY = 5;       // millis 20hz
 const int HEADER_DELAY = 5000;   // millis
 const int CONTROL_DELAY = 1000;  // micros
 const float MAX_TORQUE = 2.0;
-PDGains DEFAULT_GAINS = {8, 0.004};
+PDGains DEFAULT_GAINS = {8.0, 2.0};
+
+const bool ECHO_COMMANDS = false;
 ////////////////////// END CONFIG ///////////////////////
 
 DriveSystem drive;
@@ -25,9 +27,19 @@ long last_command_ts;
 long last_print_ts;
 long last_header_ts;
 
+bool print_debug_info = true;
+bool print_header_periodically = false;
+
 void setup(void) {
   Serial.begin(115200);
-  delay(400);
+  pinMode(13, OUTPUT);
+
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(13, HIGH);
+    delay(500);
+    digitalWrite(13, LOW);
+    delay(500);
+  }
 
   last_command_ts = micros();
   last_print_ts = millis();
@@ -35,13 +47,16 @@ void setup(void) {
 
   ////////////// Runtime config /////////////////////
   drive.SetMaxCurrent(MAX_TORQUE);
+  options.delimiter = ',';
   options.print_delay_millis = PRINT_DELAY;
   options.header_delay_millis = HEADER_DELAY;
-  options.position_references = false;
+  options.positions = true;
+  options.velocities = true;
+  options.currents = true;             // last actual current
+  options.position_references = true;  // last commanded position
   options.velocity_references = false;
   options.current_references = false;
-  options.velocities = false;
-  options.currents = false;
+  options.last_current = true;  // last commanded current
 
   // Set behavioral options
   drive.SetPositionKp(DEFAULT_GAINS.kp);
@@ -51,17 +66,15 @@ void setup(void) {
 
   interpreter.Flush();
 
-  pinMode(13, OUTPUT);
-  digitalWrite(13, HIGH);
-
-  // TODO: TEST ONLY
-  drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
-
-  // drive.SetMaxCurrent(1.0);
+  // FOR TESTING ONLY
+  // drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
+  // drive.SetMaxCurrent(6.0);
   // drive.ZeroCurrentPosition();
   // drive.SetCartesianPositions(drive.DefaultCartesianPositions());
-  // drive.SetCartesianKp({500.0, 500.0, 0.0});  // [A/m]
-  // drive.SetCartesianKd({0.2, 0.2, 0.05});     // [A / (m/s)]
+  // drive.SetCartesianKp3x3({5000.0, 0, 0, 0, 0.0, 0, 0, 0, 0.0});  //[A/m]
+  // drive.SetCartesianKd3x3({75.0, 0, 0, 0, 0.0, 0, 0, 0, 0.0});  // [A / (m/s)]
+
+  drive.PrintHeader(options);
 }
 
 void loop() {
@@ -71,30 +84,44 @@ void loop() {
     // Serial << "Got new command." << endl;
     if (r.new_position) {
       drive.SetJointPositions(interpreter.LatestPositionCommand());
-      Serial << "Position command: " << interpreter.LatestPositionCommand()
-             << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Position command: " << interpreter.LatestPositionCommand()
+               << endl;
+      }
     }
     if (r.new_cartesian_position) {
       drive.SetCartesianPositions(interpreter.LatestCartesianPositionCommand());
-      Serial << "Cartesian position command: "
-             << interpreter.LatestCartesianPositionCommand();
+      if (ECHO_COMMANDS) {
+        Serial << "Cartesian position command: "
+               << interpreter.LatestCartesianPositionCommand();
+      }
     }
     if (r.new_kp) {
       drive.SetPositionKp(interpreter.LatestKp());
-      Serial << "Kp: " << interpreter.LatestKp() << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Kp: " << interpreter.LatestKp() << endl;
+      }
     }
     if (r.new_kd) {
       drive.SetPositionKd(interpreter.LatestKd());
-      Serial.print("Kd: ");
-      Serial.println(interpreter.LatestKd(), 4);
+      if (ECHO_COMMANDS) {
+        Serial.print("Kd: ");
+        Serial.println(interpreter.LatestKd(), 4);
+      }
     }
     if (r.new_cartesian_kp) {
       drive.SetCartesianKp3x3(interpreter.LatestCartesianKp3x3());
-      Serial << "Cartesian Kp: " << interpreter.LatestCartesianKp3x3() << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Cartesian Kp: " << interpreter.LatestCartesianKp3x3()
+               << endl;
+      }
     }
     if (r.new_cartesian_kd) {
       drive.SetCartesianKd3x3(interpreter.LatestCartesianKd3x3());
-      Serial << "Cartesian Kd: " << interpreter.LatestCartesianKd3x3() << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Cartesian Kd: " << interpreter.LatestCartesianKd3x3()
+               << endl;
+      }
     }
     if (r.new_feedforward_force) {
       auto ff = interpreter.LatestFeedForwardForce();
@@ -104,19 +131,30 @@ void loop() {
     }
     if (r.new_max_current) {
       drive.SetMaxCurrent(interpreter.LatestMaxCurrent());
-      Serial << "Max Current: " << interpreter.LatestMaxCurrent() << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Max Current: " << interpreter.LatestMaxCurrent() << endl;
+      }
     }
     if (r.new_activation) {
       drive.SetActivations(interpreter.LatestActivations());
-      Serial << "Activations: " << interpreter.LatestActivations() << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Activations: " << interpreter.LatestActivations() << endl;
+      }
     }
     if (r.do_zero) {
       drive.ZeroCurrentPosition();
-      Serial << "Setting current position as the zero point" << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Setting current position as the zero point" << endl;
+      }
     }
     if (r.do_idle) {
       drive.SetIdle();
-      Serial << "Setting drive to idle." << endl;
+      if (ECHO_COMMANDS) {
+        Serial << "Setting drive to idle." << endl;
+      }
+    }
+    if (r.new_debug) {
+      print_debug_info = interpreter.LatestDebug();
     }
   }
 
@@ -126,14 +164,17 @@ void loop() {
     last_command_ts = micros();
   }
 
-  // TODO: turn this printing on and off with msgpack/json commands
-  if (millis() - last_print_ts >= options.print_delay_millis) {
-    drive.PrintStatus(options);
-    last_print_ts = millis();
-  }
-
-  if (millis() - last_header_ts >= options.header_delay_millis) {
-    drive.PrintHeader(options);
-    last_header_ts = millis();
+  if (print_debug_info) {
+    if (millis() - last_print_ts >= options.print_delay_millis) {
+      drive.PrintStatus(options);
+      // drive.PrintMsgPackStatus(options);
+      last_print_ts = millis();
+    }
+    if (print_header_periodically) {
+      if (millis() - last_header_ts >= options.header_delay_millis) {
+        drive.PrintHeader(options);
+        last_header_ts = millis();
+      }
+    }
   }
 }

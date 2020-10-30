@@ -1,9 +1,9 @@
 #include "DriveSystem.h"
 
+#include <ArduinoJson.h>
 #include <Streaming.h>
 
 #include "Utils.h"
-#include <ArduinoJson.h>
 
 DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   control_mode_ = DriveControlMode::kIdle;
@@ -387,6 +387,12 @@ void DriveSystem::PrintMsgPackStatus(DrivePrintOptions options) {
       doc["lcur"][i] = last_commanded_current_[i];
     }
   }
+  uint16_t num_bytes = measureMsgPack(doc);
+  // Serial.println(num_bytes);
+  Serial.write(69);
+  Serial.write(69);
+  Serial.write(num_bytes >> 8 & 0xff);
+  Serial.write(num_bytes & 0xff);
   serializeMsgPack(doc, Serial);
   Serial.println();
 }
@@ -429,4 +435,20 @@ void DriveSystem::PrintStatus(DrivePrintOptions options) {
   }
   Serial << endl;
   Serial.flush();
+}
+
+BLA::Matrix<kNumDriveSystemDebugValues> DriveSystem::DebugData() {
+  uint32_t write_index = 0;
+  BLA::Matrix<kNumDriveSystemDebugValues> output;
+  output(write_index++) = millis();
+  for (uint8_t i = 0; i < kNumActuators; i++) {
+    output(write_index++) = GetActuatorPosition(i);
+    output(write_index++) = GetActuatorVelocity(i);
+    output(write_index++) = GetActuatorCurrent(i);
+    output(write_index++) = position_reference_[i];
+    output(write_index++) = velocity_reference_[i];
+    output(write_index++) = current_reference_[i];
+    output(write_index++) = last_commanded_current_[i];
+  }
+  return output;
 }

@@ -31,6 +31,8 @@ struct DrivePrintOptions {
   char delimiter = '\t';
 };
 
+const uint8_t kNumDriveSystemDebugValues = 7*12 + 1;
+
 // Class for controlling the 12 (no more and no less) actuators on Pupper
 class DriveSystem {
  public:
@@ -229,4 +231,6 @@ class DriveSystem {
 
   // Print a header for the messages
   void PrintHeader(DrivePrintOptions options);
+
+  BLA::Matrix<kNumDriveSystemDebugValues> DebugData();
 };

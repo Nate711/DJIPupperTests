@@ -3,6 +3,7 @@
 #include <CommandInterpreter.h>
 #include <Streaming.h>
 
+#include "DataLogger.h"
 #include "DriveSystem.h"
 #include "Utils.h"
 
@@ -17,6 +18,10 @@ const bool ECHO_COMMANDS = false;
 ////////////////////// END CONFIG ///////////////////////
 
 DriveSystem drive;
+
+const uint32_t kLogSize = 1000;
+const uint32_t kNumAttributes = 7 * 12 + 1;
+DataLogger<kLogSize, kNumAttributes> logger;
 
 // Example json message with default start and stop characters: <{"kp":2.0}>
 // use_msgpack: true, use default arguments for the rest
@@ -67,7 +72,8 @@ void setup(void) {
 
   interpreter.Flush();
 
-  // Activating the motors on bootup is dumb but it allows you to see debug information
+  // Activating the motors on bootup is dumb but it allows you to see debug
+  // information
   drive.SetActivations({1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
   drive.SetMaxCurrent(0.0);
 
@@ -76,7 +82,8 @@ void setup(void) {
   // drive.ZeroCurrentPosition();
   // drive.SetCartesianPositions(drive.DefaultCartesianPositions());
   // drive.SetCartesianKp3x3({5000.0, 0, 0, 0, 0.0, 0, 0, 0, 0.0});  //[A/m]
-  // drive.SetCartesianKd3x3({75.0, 0, 0, 0, 0.0, 0, 0, 0, 0.0});  // [A / (m/s)]
+  // drive.SetCartesianKd3x3({75.0, 0, 0, 0, 0.0, 0, 0, 0, 0.0});  // [A /
+  // (m/s)]
 
   drive.PrintHeader(options);
 }
@@ -170,8 +177,9 @@ void loop() {
 
   if (print_debug_info) {
     if (millis() - last_print_ts >= options.print_delay_millis) {
-      drive.PrintStatus(options);
-      // drive.PrintMsgPackStatus(options);
+      // drive.PrintStatus(options);
+      // logger.AddData(drive.DebugData());
+      drive.PrintMsgPackStatus(options);
       last_print_ts = millis();
     }
     if (print_header_periodically) {

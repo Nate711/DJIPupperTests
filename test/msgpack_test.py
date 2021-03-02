@@ -1,6 +1,7 @@
 import msgpack
 import serial
 import numpy as np
+import glob
 
 
 def pack_serialized(bytes_array, start=0x00):
@@ -12,7 +13,9 @@ def pack_dict(dict, start=0x00):
     full_array = pack_serialized(raw, start)
     return full_array
 
-with serial.Serial("/dev/tty.usbmodem78075901", timeout=0.2) as ser:
+# Pretty sure this glob pattern only works on mac, otherwise you'll need to change it to correctly find the Teensy.
+serial_port = glob.glob("/dev/tty.usbmodem*")[0]
+with serial.Serial(serial_port, timeout=0.2) as ser:
     try:
         # Use the zero command if you'd like to set the current position as the zero point for all motors
         # ser.write(pack_dict({"zero": False}))

@@ -22,6 +22,7 @@ struct CheckResult {
   bool new_activation = false;
   bool do_zero = false;
   bool do_idle = false;
+  bool do_homing = false;
   bool new_debug = false;
   CheckResultFlag flag = CheckResultFlag::kNothing;
 };
@@ -186,6 +187,12 @@ CheckResult CommandInterpreter::CheckForMessages() {
       if (obj["zero"].as<bool>()) {
         result.flag = CheckResultFlag::kNewCommand;
         result.do_zero = true;
+      }
+    }
+    if (obj.containsKey("home")) {
+      if (obj["home"].as<bool>()) {
+        result.flag = CheckResultFlag::kNewCommand;
+        result.do_homing = true;
       }
     }
     if (obj.containsKey("idle")) {

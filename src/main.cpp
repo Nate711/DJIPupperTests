@@ -183,9 +183,9 @@ void loop() {
 
   if (print_debug_info) {
     if (millis() - last_print_ts >= options.print_delay_millis) {
-      // drive.PrintStatus(options);
+      drive.PrintStatus(options);
       // logger.AddData(drive.DebugData());
-      drive.PrintMsgPackStatus(options);
+      // drive.PrintMsgPackStatus(options);
       last_print_ts = millis();
     }
     if (print_header_periodically) {

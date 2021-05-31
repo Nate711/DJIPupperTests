@@ -164,6 +164,12 @@ void loop() {
         Serial << "Setting drive to idle." << endl;
       }
     }
+    if (r.do_homing) {
+      drive.ExecuteHomingSequence();
+      if (ECHO_COMMANDS) {
+        Serial << "Homing axes." << endl;
+      }
+    }
     if (r.new_debug) {
       print_debug_info = interpreter.LatestDebug();
     }

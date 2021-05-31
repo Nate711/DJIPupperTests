@@ -11,6 +11,7 @@
 enum class DriveControlMode {
   kIdle,
   kError,  // For robot errors, not coding mistakes.
+  kHoming,
   kPositionControl,
   kCartesianPositionControl,
   kCurrentControl,
@@ -81,6 +82,41 @@ class DriveSystem {
   // Important direction multipliers
   std::array<float, 12> direction_multipliers_; /* */
 
+  /*  Homing parameters begin */
+  // Homed positions of the axes (corresponding to joint limits)
+  ActuatorPositionVector homed_positions_;
+
+  // Abduction joint limit in the direction of homing
+  float abduction_homed_position;
+
+  // Hip joint limit in the direction of homing
+  float hip_homed_position;
+
+  // Knee joint limit in the direction of homing
+  float knee_homed_position;
+
+  // Directions of homing for each axis
+  std::array<float, 12> homing_directions_;
+
+  // Which axes have been homed already
+  std::array<bool, 12> homed_axes_;
+
+  // Which axes are currently homing
+  std::array<bool, 12> homing_axes_;
+
+  // Threshold for detecting collisions with the joint limits during homing
+  float homing_current_threshold = 3.0;
+
+  // Angular velocity in radians/timestep for homing
+  float homing_velocity = 0.0005;
+
+  // Axes grouped into different phases of the homing sequence
+  std::array<int, 4> knee_axes_;
+  std::array<int, 4> hip_axes_;
+  std::array<int, 2> right_abduction_axes_;
+  std::array<int, 2> left_abduction_axes_;
+  /*  Homing parameters end */
+
   // Initialize the two CAN buses
   void InitializeDrive();
 
@@ -109,6 +145,13 @@ class DriveSystem {
 
   // Go into idle mode, which sends 0A to all motors.
   void SetIdle();
+
+  // Home all axes. 
+  void ExecuteHomingSequence();
+
+  // Updates the homing status for the given axes. Returns true iff the given axes are already homed. 
+  template<size_t N>
+  bool CheckHomingStatus(std::array<int, N> axes);
 
   // Set the measured position to the zero point for the actuators.
   void ZeroCurrentPosition();

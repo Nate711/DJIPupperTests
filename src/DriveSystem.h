@@ -95,6 +95,9 @@ class DriveSystem {
   // Knee joint limit in the direction of homing
   float knee_homed_position;
 
+  // Joint backlash
+  float backlash;
+
   // Directions of homing for each axis
   std::array<float, 12> homing_directions_;
 
@@ -116,6 +119,9 @@ class DriveSystem {
   std::array<int, 2> right_abduction_axes_;
   std::array<int, 2> left_abduction_axes_;
   /*  Homing parameters end */
+
+  // Soft joint limit for the maximum knee angle
+  float knee_soft_limit;
 
   // Initialize the two CAN buses
   void InitializeDrive();

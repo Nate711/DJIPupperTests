@@ -8,7 +8,7 @@
 DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   control_mode_ = DriveControlMode::kIdle;
   fault_current_ = 10.0;  // TODO: don't make this so high at default
-  fault_position_ = 3.5;  // TODO: make this a param
+  fault_position_ = 2 * PI;  // TODO: make this a param
   fault_velocity_ =
       100000.0;  // TODO: make this a param, set to something more reasonable.
   max_current_ = 0.0;
@@ -27,9 +27,13 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   direction_multipliers_ = direction_multipliers;
 
   /*  Homing parameters begin */
-  float abduction_homed_position = 0.8384160301;
-  float hip_homed_position = 3.4564099081;
-  float knee_homed_position = 2.9234265;
+  // float abduction_homed_position = 0.8384160301;
+  // float hip_homed_position = 3.4564099081;
+  // float knee_homed_position = 2.9234265;
+  float backlash = 2.0 / 80.0;
+  float abduction_homed_position = 45 * PI / 180 + backlash;
+  float hip_homed_position = (270 - 15) * PI / 180 + backlash;
+  float knee_homed_position = 165 * PI / 180 + backlash;
   std::array<float, 12> homing_directions = {-1, 1, -1, 1, 1, -1,
                                              -1, 1, -1, 1, 1, -1};
   homing_directions_ = homing_directions;
@@ -42,8 +46,8 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   std::array<bool, 12> homing_axes = {false, false, false, false, false, false, 
                                     false, false, false, false, false, false};
   homing_axes_ = homing_axes;
-  homing_current_threshold = 3.0;
-  homing_velocity = 0.0005;
+  homing_current_threshold = 5.0;
+  homing_velocity = 0.0015;
   std::array<int, 4> knee_axes = {2, 5, 8, 11};
   knee_axes_ = knee_axes;
   std::array<int, 4> hip_axes = {1, 4, 7, 10};
@@ -53,6 +57,8 @@ DriveSystem::DriveSystem() : front_bus_(), rear_bus_() {
   std::array<int, 2> left_abduction_axes = {3, 9};
   left_abduction_axes_ = left_abduction_axes;
   /*  Homing parameters end */
+
+  knee_soft_limit = -PI / 6;
 
   SetDefaultCartesianPositions();
 }
@@ -199,6 +205,8 @@ BLA::Matrix<12> DriveSystem::CartesianPositionControl() {
                    reference_hip_relative_positions, reference_velocities,
                    cartesian_position_gains_) +
         LegFeedForwardForce(leg_index);
+    auto knee_angle = joint_angles(2);
+    auto knee_constraint_torque = (knee_angle > knee_soft_limit) ? position_gains_.kp * (knee_soft_limit - knee_angle) : 0.0;
     auto joint_torques = ~jac * cartesian_forces;
 
     // Ensures that the direction of the force is preserved when motors
@@ -210,7 +218,7 @@ BLA::Matrix<12> DriveSystem::CartesianPositionControl() {
 
     actuator_torques(3 * leg_index) = joint_torques(0);
     actuator_torques(3 * leg_index + 1) = joint_torques(1);
-    actuator_torques(3 * leg_index + 2) = joint_torques(2);
+    actuator_torques(3 * leg_index + 2) = joint_torques(2) + knee_constraint_torque;
   }
   return actuator_torques;
 }
@@ -255,20 +263,19 @@ void DriveSystem::Update() {
       }
       CommandCurrents(pd_current);
 
+      std::array<int, 4> abduction_axes_ = {0, 3, 6, 9};
+
       // Homing sequence
-      // Phase 0: hip joints
-      if (CheckHomingStatus(hip_axes_)) {
-        // Phase 1: knee joints
-        if (CheckHomingStatus(knee_axes_)) {
-          // Phase 2: right abduction joints
-          if (CheckHomingStatus(right_abduction_axes_)) {
-            for (int i : right_abduction_axes_) { position_reference_[i] = 0; }
-            // Phase 3: left abduction joints
-            if (CheckHomingStatus(left_abduction_axes_)) {
-              // Finish homing sequence and hold the current pose
-              for (int i : left_abduction_axes_) { position_reference_[i] = 0; }
-              for (int i : hip_axes_) { position_reference_[i] = homing_directions_[i] * PI / 2; }
-            }
+      // Phase 0: knee joints
+      if (CheckHomingStatus(knee_axes_)) {
+        // Phase 1: abduction joints
+        if (CheckHomingStatus(abduction_axes_)) {
+          for (int i : abduction_axes_) { position_reference_[i] = 0; }
+          // Phase 2: hip joints
+          if (CheckHomingStatus(hip_axes_)) {
+            // Finish homing sequence and hold the current pose
+            for (int i : hip_axes_) { position_reference_[i] = homing_directions_[i] * PI / 2; }
+            control_mode_ = DriveControlMode::kPositionControl;
           }
         }
       }

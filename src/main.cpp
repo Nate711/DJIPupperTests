@@ -39,8 +39,8 @@ void setup(void) {
   Serial.begin(115200);
   pinMode(13, OUTPUT);
 
-  // Wait 5 seconds before turning on. This allows the motors to boot up.
-  for (int i = 0; i < 20; i++) {
+  // Wait 1 second before turning on. This allows the motors to boot up.
+  for (int i = 0; i < 4; i++) {
     digitalWrite(13, HIGH);
     delay(125);
     digitalWrite(13, LOW);
@@ -86,6 +86,8 @@ void setup(void) {
   // (m/s)]
 
   drive.PrintHeader(options);
+
+  drive.ExecuteHomingSequence();
 }
 
 void loop() {

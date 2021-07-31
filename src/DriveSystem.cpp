@@ -88,6 +88,10 @@ DriveControlMode DriveSystem::CheckErrors() {
 
 void DriveSystem::SetIdle() { control_mode_ = DriveControlMode::kIdle; }
 
+void DriveSystem::SetupIMU() { imu.Setup(); }
+
+void DriveSystem::UpdateIMU() { imu.Update(); }
+
 void DriveSystem::ExecuteHomingSequence() {
   float homing_current = 6.0;
   control_mode_ = DriveControlMode::kHoming;
@@ -470,6 +474,12 @@ void DriveSystem::PrintMsgPackStatus(DrivePrintOptions options) {
   StaticJsonDocument<2048> doc;
   // 21 micros to put this doc together
   doc["ts"] = millis();
+  doc["yaw"] = imu.yaw;
+  doc["pitch"] = imu.pitch;
+  doc["roll"] = imu.roll;
+  doc["yaw_rate"] = imu.yaw_rate;
+  doc["pitch_rate"] = imu.pitch_rate;
+  doc["roll_rate"] = imu.roll_rate;
   for (uint8_t i = 0; i < kNumActuators; i++) {
     if (options.positions) {
       doc["pos"][i] = GetActuatorPosition(i);
@@ -547,6 +557,12 @@ BLA::Matrix<kNumDriveSystemDebugValues> DriveSystem::DebugData() {
   uint32_t write_index = 0;
   BLA::Matrix<kNumDriveSystemDebugValues> output;
   output(write_index++) = millis();
+  output(write_index++) = imu.yaw;
+  output(write_index++) = imu.pitch;
+  output(write_index++) = imu.roll;
+  output(write_index++) = imu.yaw_rate;
+  output(write_index++) = imu.pitch_rate;
+  output(write_index++) = imu.roll_rate;
   for (uint8_t i = 0; i < kNumActuators; i++) {
     output(write_index++) = GetActuatorPosition(i);
     output(write_index++) = GetActuatorVelocity(i);

@@ -20,7 +20,7 @@ const bool ECHO_COMMANDS = false;
 DriveSystem drive;
 
 const uint32_t kLogSize = 1000;
-const uint32_t kNumAttributes = 7 * 12 + 1;
+const uint32_t kNumAttributes = 1 + 6 + 7 * 12;
 DataLogger<kLogSize, kNumAttributes> logger;
 
 // Example json message with default start and stop characters: <{"kp":2.0}>
@@ -46,6 +46,8 @@ void setup(void) {
     digitalWrite(13, LOW);
     delay(125);
   }
+
+  drive.SetupIMU();
 
   last_command_ts = micros();
   last_print_ts = millis();
@@ -139,8 +141,10 @@ void loop() {
     if (r.new_feedforward_force) {
       auto ff = interpreter.LatestFeedForwardForce();
       drive.SetFeedForwardForce(Utils::ArrayToVector<12, 12>(ff));
+      if (ECHO_COMMANDS) {
       Serial << "Feed forward: " << interpreter.LatestFeedForwardForce()
              << endl;
+      }
     }
     if (r.new_max_current) {
       drive.SetMaxCurrent(interpreter.LatestMaxCurrent());
@@ -179,6 +183,7 @@ void loop() {
 
   if (micros() - last_command_ts >= CONTROL_DELAY) {
     // TODO: characterize maximum lag between control updates
+    drive.UpdateIMU();
     drive.Update();
     last_command_ts = micros();
   }

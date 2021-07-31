@@ -6,6 +6,7 @@
 #include "Kinematics.h"
 #include "PID.h"
 #include "RobotTypes.h"
+#include "IMU.h"
 
 // Enum for the various control modes: idle, position control, current control
 enum class DriveControlMode {
@@ -32,7 +33,7 @@ struct DrivePrintOptions {
   char delimiter = '\t';
 };
 
-const uint8_t kNumDriveSystemDebugValues = 7*12 + 1;
+const uint8_t kNumDriveSystemDebugValues = 1 + 6 + 7*12;
 
 // Class for controlling the 12 (no more and no less) actuators on Pupper
 class DriveSystem {
@@ -42,6 +43,8 @@ class DriveSystem {
  private:
   C610Bus<CAN1> front_bus_;
   C610Bus<CAN2> rear_bus_;
+
+  IMU imu;
 
   DriveControlMode control_mode_;
 
@@ -139,6 +142,9 @@ class DriveSystem {
   // Run one iteration through the control loop. Action depends on the current
   // mode.
   void Update();
+
+  void SetupIMU();
+  void UpdateIMU();
 
   // Calculate motor torques for cartesian position control
   BLA::Matrix<12> CartesianPositionControl();

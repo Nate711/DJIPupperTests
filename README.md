@@ -9,3 +9,6 @@
 * If it's working, the Teensy should blink for 5s on bootup and then start printing debug info over Serial. The debug information is encoded using msgpack so it will look like gibberish unless you decode it.
 
 ## Usage
+
+## Notes
+* Use the no-imu branch if you have an older Pupper without an IMU.

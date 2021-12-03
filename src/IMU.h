@@ -13,7 +13,7 @@ class IMU {
         Mahony filter;
     public:
         IMU();
-        void Setup();
+        void Setup(int filter_frequency);
         void Update();
         float yaw;
         float pitch;

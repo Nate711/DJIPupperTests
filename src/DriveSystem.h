@@ -20,7 +20,7 @@ enum class DriveControlMode {
 
 // Makes it easier to pass options to the PrintStatus function
 struct DrivePrintOptions {
-  uint32_t print_delay_millis = 10;
+  uint32_t print_delay_micros = 10000;
   uint32_t header_delay_millis = 10000;
   bool time = true;
   bool positions = true;
@@ -143,7 +143,7 @@ class DriveSystem {
   // mode.
   void Update();
 
-  void SetupIMU();
+  void SetupIMU(int filter_frequency);
   void UpdateIMU();
 
   // Calculate motor torques for cartesian position control

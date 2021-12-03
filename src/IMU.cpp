@@ -2,13 +2,14 @@
 
 IMU::IMU() {}
 
-void IMU::Setup() {
+void IMU::Setup(int filter_frequency) {
     SPI_PORT.begin();
-    myICM.begin( CS_PIN, SPI_PORT );
-    filter.begin(1000);
+    myICM.begin( CS_PIN, SPI_PORT, 1000000);
+    filter.begin(filter_frequency);
 }
 
 void IMU::Update() {
+   // Takes about 0.3ms but that is enough to interrupt PD
    if( myICM.dataReady() ){
     myICM.getAGMT();
     filter.update(
@@ -16,7 +17,6 @@ void IMU::Update() {
         myICM.accY(), myICM.accX(), -myICM.accZ(),
         myICM.magY(), myICM.magX(), -myICM.magZ()
     );
-
     yaw = filter.getYaw() * PI/180;
     pitch = filter.getPitch() * PI/180;
     roll = filter.getRoll() * PI/180;

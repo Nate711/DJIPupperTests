@@ -88,7 +88,7 @@ DriveControlMode DriveSystem::CheckErrors() {
 
 void DriveSystem::SetIdle() { control_mode_ = DriveControlMode::kIdle; }
 
-void DriveSystem::SetupIMU() { imu.Setup(); }
+void DriveSystem::SetupIMU(int filter_frequency) { imu.Setup(filter_frequency); }
 
 void DriveSystem::UpdateIMU() { imu.Update(); }
 

@@ -8,9 +8,11 @@
 #include "Utils.h"
 
 ////////////////////// CONFIG ///////////////////////
-const int PRINT_DELAY = 5;       // millis 20hz
+const int PRINT_DELAY = 10000;       // micros, 100hz
 const int HEADER_DELAY = 5000;   // millis
 const int CONTROL_DELAY = 1000;  // micros
+const int IMU_DELAY = 5000; // micros
+constexpr int IMU_FILTER_FREQUENCY = 1000000 / IMU_DELAY; // Hz
 const float MAX_TORQUE = 2.0;
 PDGains DEFAULT_GAINS = {8.0, 2.0};
 
@@ -29,6 +31,7 @@ CommandInterpreter interpreter(true);
 DrivePrintOptions options;
 
 long last_command_ts;
+long last_imu_ts;
 long last_print_ts;
 long last_header_ts;
 
@@ -36,7 +39,7 @@ bool print_debug_info = true;
 bool print_header_periodically = false;
 
 void setup(void) {
-  Serial.begin(115200);
+  Serial.begin(500000);
   pinMode(13, OUTPUT);
 
   // Wait 1 second before turning on. This allows the motors to boot up.
@@ -47,24 +50,24 @@ void setup(void) {
     delay(125);
   }
 
-  drive.SetupIMU();
+  drive.SetupIMU(IMU_FILTER_FREQUENCY);
 
   last_command_ts = micros();
-  last_print_ts = millis();
+  last_print_ts = micros();
   last_header_ts = millis();
 
   ////////////// Runtime config /////////////////////
   drive.SetMaxCurrent(MAX_TORQUE);
   options.delimiter = ',';
-  options.print_delay_millis = PRINT_DELAY;
+  options.print_delay_micros = PRINT_DELAY;
   options.header_delay_millis = HEADER_DELAY;
   options.positions = true;
   options.velocities = true;
-  options.currents = true;             // last actual current
-  options.position_references = true;  // last commanded position
+  options.currents = false;             // last actual current
+  options.position_references = false;  // last commanded position
   options.velocity_references = false;
   options.current_references = false;
-  options.last_current = true;  // last commanded current
+  options.last_current = false;  // last commanded current
 
   // Set behavioral options
   drive.SetPositionKp(DEFAULT_GAINS.kp);
@@ -180,20 +183,22 @@ void loop() {
       print_debug_info = interpreter.LatestDebug();
     }
   }
+  if (micros() - last_imu_ts >= IMU_DELAY) {
+    drive.UpdateIMU();
+    last_imu_ts = micros();
+  }
 
   if (micros() - last_command_ts >= CONTROL_DELAY) {
-    // TODO: characterize maximum lag between control updates
-    drive.UpdateIMU();
     drive.Update();
     last_command_ts = micros();
   }
 
   if (print_debug_info) {
-    if (millis() - last_print_ts >= options.print_delay_millis) {
+    if (micros() - last_print_ts >= options.print_delay_micros) {
       // drive.PrintStatus(options);
       // logger.AddData(drive.DebugData());
       drive.PrintMsgPackStatus(options);
-      last_print_ts = millis();
+      last_print_ts = micros();
     }
     if (print_header_periodically) {
       if (millis() - last_header_ts >= options.header_delay_millis) {

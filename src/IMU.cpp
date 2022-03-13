@@ -12,10 +12,10 @@ void IMU::Update() {
    // Takes about 0.3ms but that is enough to interrupt PD
    if( myICM.dataReady() ){
     myICM.getAGMT();
-    filter.update(
+    filter.updateIMU(
         myICM.gyrY(), myICM.gyrX(), -myICM.gyrZ(),
-        myICM.accY(), myICM.accX(), -myICM.accZ(),
-        myICM.magY(), myICM.magX(), -myICM.magZ()
+        myICM.accY(), myICM.accX(), -myICM.accZ()
+        // myICM.magY(), myICM.magX(), -myICM.magZ()
     );
     yaw = filter.getYaw() * PI/180;
     pitch = filter.getPitch() * PI/180;

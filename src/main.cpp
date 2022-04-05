@@ -92,7 +92,7 @@ void setup(void) {
 
   drive.PrintHeader(options);
 
-  drive.ExecuteHomingSequence();
+  // drive.ExecuteHomingSequence();
 }
 
 void loop() {

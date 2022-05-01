@@ -518,6 +518,13 @@ void DriveSystem::PrintStatus(DrivePrintOptions options) {
   if (options.time) {
     Serial << millis() << delimiter;
   }
+  Serial << imu.yaw << delimiter;
+  Serial << imu.pitch << delimiter;
+  Serial << imu.roll << delimiter;
+  Serial << imu.yaw_rate << delimiter;
+  Serial << imu.pitch_rate << delimiter;
+  Serial << imu.roll_rate << delimiter;
+  
   for (uint8_t i = 0; i < kNumActuators; i++) {
     if (!active_mask_[i]) continue;
     if (options.positions) {

@@ -183,6 +183,7 @@ void loop() {
       print_debug_info = interpreter.LatestDebug();
     }
   }
+  
   if (micros() - last_imu_ts >= IMU_DELAY) {
     drive.UpdateIMU();
     last_imu_ts = micros();

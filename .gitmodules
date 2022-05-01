@@ -10,3 +10,12 @@
 [submodule "lib/SparkFun_ICM-20948_ArduinoLibrary"]
 	path = lib/SparkFun_ICM-20948_ArduinoLibrary
 	url = https://github.com/sparkfun/SparkFun_ICM-20948_ArduinoLibrary
+[submodule "lib/Adafruit_ICM20X"]
+	path = lib/Adafruit_ICM20X
+	url = https://github.com/adafruit/Adafruit_ICM20X.git
+[submodule "lib/Adafruit_Sensor"]
+	path = lib/Adafruit_Sensor
+	url = https://github.com/adafruit/Adafruit_Sensor.git
+[submodule "lib/Adafruit_BusIO"]
+	path = lib/Adafruit_BusIO
+	url = https://github.com/adafruit/Adafruit_BusIO.git

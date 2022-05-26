@@ -1,8 +1,9 @@
 # Stanford TC-Pupper
 
 ## Installation
-* Clone this repository
-* From the repo directory, run ```git submodule update --init```
+* Clone this repository ``git clone https://github.com/Nate711/DJIPupperTests.git``
+* Go into the repo directory ``cd DJIPupperTests``
+* Run ```git submodule update --init``` to install required libraries
 * Install PlatformIO IDE (addon for VSCode)
 * Use the "Upload" feature of PlatformIO to upload the firmware to the Teensy
 * The last two steps are covered by this video: https://knowledge.autodesk.com/community/screencast/cbf5a477-08e8-4b54-aa1b-aeffc3e5aa3d 

@@ -185,7 +185,7 @@ void loop() {
   }
   
   if (micros() - last_imu_ts >= IMU_DELAY) {
-    drive.UpdateIMU();
+    // drive.UpdateIMU(); // Disable until we can figure out why it disrupts activation
     last_imu_ts = micros();
   }
 
